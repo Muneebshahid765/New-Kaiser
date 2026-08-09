@@ -1,0 +1,1 @@
+export { useAuth, useGetAuth, type AuthUser } from "@/context/auth-context";

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Email Verification</title>
+  <style>
+    @media only screen and (max-width:600px){
+      .em-wrap  { padding:12px !important; }
+      .em-box   { border-radius:8px !important; }
+      .em-head  { padding:18px 20px !important; }
+      .em-body  { padding:24px 20px !important; }
+      .em-foot  { padding:14px 20px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#F5EFE6;">
+<table class="em-wrap" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background-color:#F5EFE6;padding:24px 16px;">
+  <tr>
+    <td align="center">
+      <table class="em-box" width="560" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:560px;width:100%;background:#FFFFFF;border-radius:12px;border:1px solid #E8DFD4;overflow:hidden;">
+
+        {{> header}}
+
+        <tr>
+          <td class="em-body" style="padding:32px;">
+            <p style="margin:0 0 4px;font-size:20px;font-weight:700;color:#3B2516;font-family:'Segoe UI',Roboto,Arial,sans-serif;">Verify your email address</p>
+            <p style="margin:0 0 28px;font-size:14px;color:#8B7355;line-height:1.6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+              Hi <strong style="color:#3B2516;">{{firstName}}</strong>, welcome to {{brandName}}!
+              Use the one-time code below to verify your email address and activate your account.
+              This code is valid for <strong>10 minutes</strong>.
+            </p>
+
+            <!-- OTP Box -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+              <tr>
+                <td align="center">
+                  <table cellpadding="0" cellspacing="0" border="0"
+                         style="background:#F5EFE6;border:1px solid #E8DFD4;border-radius:12px;">
+                    <tr>
+                      <td style="padding:24px 48px;text-align:center;">
+                        <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#A89278;font-family:'Segoe UI',Roboto,Arial,sans-serif;">Your verification code</p>
+                        <p style="margin:0;font-size:36px;font-weight:700;letter-spacing:10px;color:#3B2516;font-family:'Courier New',Courier,monospace;">{{verificationCode}}</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Steps -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:#FDFAF6;border:1px solid #E8DFD4;border-radius:10px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#3B2516;font-family:'Segoe UI',Roboto,Arial,sans-serif;">How to verify:</p>
+                  <p style="margin:0;font-size:13px;color:#8B7355;line-height:1.8;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+                    1. Return to the {{brandName}} sign-up page.<br>
+                    2. Enter the 6-digit code shown above.<br>
+                    3. Your account will be activated immediately.
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;font-size:13px;color:#A89278;line-height:1.6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+              If you did not create an account with {{brandName}}, you can safely ignore this email.
+              No action is required.
+            </p>
+          </td>
+        </tr>
+
+        {{> footer}}
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

@@ -37,6 +37,7 @@ import { ProfileModule } from './modules/users/users.module';
 import { AdminSettingsModule } from './modules/admin-settings/admin-settings.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
+import { FaqModule } from './modules/Public/public.module';
 
 @Module({
   imports: [
@@ -67,7 +68,8 @@ import { ProductsModule } from './modules/products/products.module';
     ProfileModule,
     AdminSettingsModule,
     CategoriesModule,
-    ProductsModule
+    ProductsModule,
+    FaqModule
   ],
   controllers: [AppController],
   providers: [

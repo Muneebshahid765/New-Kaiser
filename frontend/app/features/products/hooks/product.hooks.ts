@@ -7,6 +7,7 @@ import {
   deleteProduct,
   duplicateProduct,
   getFeaturedProducts,
+  getFilteredProducts,
   getInventory,
   getProduct,
   hardDeleteProduct,
@@ -29,6 +30,8 @@ import type {
   InventoryResponse,
   HardDeleteResponse,
   FeaturedProductItem,
+  GetProductsFilterParams,
+  FilteredProductsResponse,
 } from '../types/product-response.types';
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -42,6 +45,20 @@ export const PRODUCT_DETAIL_KEY = (param: string) =>
   ['products', 'detail', param] as const;
 
 
+export const PRODUCTS_QUERY_KEY = (params: GetProductsFilterParams) => [
+  "products",
+  "list",
+  params,
+];
+
+export function usePublicProducts(params: GetProductsFilterParams = {}) {
+  return useQuery<FilteredProductsResponse, Error>({
+    queryKey: PRODUCTS_QUERY_KEY(params),
+    queryFn: () => getFilteredProducts(params),
+    staleTime: 1000 * 60 * 3, // 3 minutes cache
+    placeholderData: (previousData) => previousData, // Smooth page/filter transitions
+  });
+}
 
 
 export function useFeaturedProducts() {

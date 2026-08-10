@@ -1,6 +1,6 @@
 import CartPage from "@/app/components/cart/CartPage";
 
 
-export default function CategoriesPage() {
+export default function AddToCartPage() {
   return <CartPage />;
 }

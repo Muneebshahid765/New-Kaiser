@@ -267,3 +267,53 @@ export interface FeaturedProductsResponse {
   success: boolean;
   data: FeaturedProductItem[];
 }
+
+
+// ─── Filter Query Parameters ──────────────────────────────────────────────────
+
+export interface GetProductsFilterParams {
+  page?: number;
+  limit?: number;
+  category?: string;
+  search?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  stockFilter?: string; // 'instock' | 'outofstock' | 'lowstock'
+  onSale?: boolean | string;
+  minRating?: string;
+  sort?: string;
+}
+
+// ─── Filtered Product Item (Public Grid / Catalog) ───────────────────────────
+
+export interface FilteredProductItem {
+  id: string;
+  _id?: string; // Legacy UI compatibility
+  name: string;
+  slug: string;
+  sku: string;
+  price: number;
+  originalPrice: number | null;
+  stockQuantity: number;
+  averageRating: number;
+  totalReviews: number;
+  createdAt: string;
+  category: ProductCategoryRef;
+  images: Pick<ProductImageItem, 'url' | 'title'>[];
+  labels: Pick<ProductLabel, 'text' | 'variant'>[];
+  finalPrice?: number;
+  discountPercentage?: number;
+}
+
+export interface ProductsPagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface FilteredProductsResponse {
+  success: boolean;
+  products: FilteredProductItem[];
+  pagination: ProductsPagination;
+}

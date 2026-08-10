@@ -24,11 +24,19 @@ import { ZodValidationPipe } from 'src/common/pipes/validation.pipe';
 import { type CreateProductDto, CreateProductSchema, type UpdateProductDto, UpdateProductSchema } from './dto/create-product.dto';
 import { Public } from 'src/common/decorators/public.decorator';
 import { type BulkUpdateProductDto, BulkUpdateProductSchema } from './dto/bulk-update-product.dto';
+import {type GetProductsFilter } from './dto/filter.dto';
 
 @Controller('products')
 @UseGuards(RolesGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
+
+  @Public()  
+@Get()
+  async getProducts(@Query() query: GetProductsFilter) {
+    return this.productsService.getFilteredProducts(query);
+  }
+
 
 
 

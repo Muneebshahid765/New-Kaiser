@@ -13,6 +13,8 @@ import { isUUID, calculateGlobalDiscount, cleanObject } from '../../common/utils
 import slugify from 'slugify';
 import { CacheService } from 'src/core/cache/redis/cache.service';
 import { BulkUpdateProductDto } from './dto/bulk-update-product.dto';
+import { calculateProductScore } from 'src/common/utils/product-score.util';
+import { GetProductsFilter } from './dto/filter.dto';
 
 type PrismaTx = Prisma.TransactionClient;
 @Injectable()
@@ -476,21 +478,109 @@ if (dto.images !== undefined) {
     return response;
   }
 
-  async getFeaturedProducts() {
+  async getFilteredProducts(filterDto: GetProductsFilter) {
+  const page  = Number(filterDto.page)  || 1
+  const limit = Number(filterDto.limit) || 25
+  const skip  = (page - 1) * limit
+
+  const cacheKey = `products:filtered:${JSON.stringify(filterDto)}`
+  const cached   = await this.cacheService.get(cacheKey)
+  if (cached) return typeof cached === 'string' ? JSON.parse(cached) : cached
+
+  const where: Prisma.ProductWhereInput = { status: 'active', deleted: false }
+
+  // Category
+  if (filterDto.category?.trim()) {
+    where.category = {
+      OR: [
+        { id:   filterDto.category },
+        { slug: filterDto.category },
+        { name: { equals: filterDto.category, mode: 'insensitive' } },
+      ],
+    }
+  }
+
+  // Search
+  if (filterDto.search?.trim()) {
+    where.OR = [
+      { name:        { contains: filterDto.search.trim(), mode: 'insensitive' } },
+      { description: { contains: filterDto.search.trim(), mode: 'insensitive' } },
+      { sku:         { contains: filterDto.search.trim(), mode: 'insensitive' } },
+    ]
+  }
+
+  // Price
+  if (filterDto.minPrice || filterDto.maxPrice) {
+    where.price = {}
+    if (filterDto.minPrice) where.price.gte = parseFloat(String(filterDto.minPrice))
+    if (filterDto.maxPrice) where.price.lte = parseFloat(String(filterDto.maxPrice))
+  }
+
+  // Stock
+  if (filterDto.stockFilter === 'instock')    where.stockQuantity = { gt: 0 }
+  if (filterDto.stockFilter === 'outofstock') where.stockQuantity = { lte: 0 }
+  if (filterDto.stockFilter === 'lowstock')   where.stockQuantity = { gt: 0, lte: 5 }
+
+  // On Sale  ← ✅ fix: block properly closed
+   if (filterDto.onSale === true) {
+  where.originalPrice = { not: null }
+}
+if (filterDto.minRating) {
+  where.averageRating = { gte: filterDto.minRating }
+}
+  
+
+  // Sort
+  let orderBy: Prisma.ProductOrderByWithRelationInput[] = [
+    { totalReviews: 'desc' },
+    { averageRating: 'desc' },
+    { createdAt: 'desc' },
+  ]
+  switch (filterDto.sort) {
+    case '-createdAt': orderBy = [{ createdAt: 'desc' }]; break
+    case  'createdAt': orderBy = [{ createdAt: 'asc'  }]; break
+    case    '-price':  orderBy = [{ price: 'desc'     }]; break
+    case     'price':  orderBy = [{ price: 'asc'      }]; break
+  }
+
+  const [rawProducts, totalCount] = await Promise.all([
+    this.prisma.product.findMany({
+      where, orderBy, skip, take: limit,
+      select: {
+        id: true, name: true, slug: true, sku: true,
+        price: true, originalPrice: true, stockQuantity: true,
+        averageRating: true, totalReviews: true, createdAt: true,
+        category: { select: { id: true, name: true, slug: true } },
+        images:   { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true, title: true } },
+        labels:   { orderBy: { sortOrder: 'asc' },          select: { text: true, variant: true } },
+      },
+    }),
+    this.prisma.product.count({ where }),
+  ])
+
+  const activeDiscount = await this.fetchActiveSiteWideDiscount()
+  const products = rawProducts.map((p) => calculateGlobalDiscount(p, activeDiscount))
+
+  const response = {
+    success: true,
+    products,
+    pagination: { total: totalCount, page, limit, totalPages: Math.ceil(totalCount / limit) },
+  }
+
+  await this.cacheService.setex(cacheKey, 120, JSON.stringify(response))
+  return response
+}
+  // Refactored getFeaturedProducts to use the SAME reusable score function
+async getFeaturedProducts() {
     const cacheKey = 'products:featured:top5';
-    
-    // 1. Check Redis Cache
+
     const cached = await this.cacheService.get(cacheKey);
     if (cached) {
       return typeof cached === 'string' ? JSON.parse(cached) : cached;
     }
 
-    // 2. Query Active & Non-Deleted Products (Optimized DB Selection)
     const rawProducts = await this.prisma.product.findMany({
-      where: {
-        status: 'active',
-        deleted: false,
-      },
+      where: { status: 'active', deleted: false },
       select: {
         id: true,
         name: true,
@@ -505,14 +595,10 @@ if (dto.images !== undefined) {
         highlights: true,
         createdAt: true,
         category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
+          select: { id: true, name: true, slug: true },
         },
         images: {
-          take: 1, // Featured card strictly needs primary image
+          take: 1,
           orderBy: { sortOrder: 'asc' },
           select: { url: true, title: true },
         },
@@ -521,53 +607,25 @@ if (dto.images !== undefined) {
           select: { text: true, variant: true },
         },
       },
-      take: 30, // Ranking pool
+      take: 30,
     });
 
-    // 3. Custom Popularity & Stock Ranking Algorithm
     const now = new Date().getTime();
     const rankedProducts = rawProducts
-      .map((product) => {
-        const rating = Number(product.averageRating) || 0;
-        const reviews = product.totalReviews || 0;
-        const stock = product.stockQuantity || 0;
-        
-        // Calculate days since created
-        const ageInDays = (now - new Date(product.createdAt).getTime()) / (1000 * 3600 * 24);
-        
-        // Scoring Criteria:
-        // - Rating Weight (0 to 100 points)
-        const ratingScore = rating * 20; 
-        
-        // - Review Volume Weight (Logarithmic-like growth to prevent extreme bias)
-        const reviewScore = Math.min(reviews * 2.5, 50); 
-        
-        // - Stock Priority (In-stock items boosted to front)
-        const stockScore = stock > 0 ? 30 : -50; 
-        
-        // - Recency Bonus (Newer items < 30 days old get up to 15 points)
-        const recencyScore = Math.max(0, 15 - ageInDays * 0.5);
-
-        const totalScore = ratingScore + reviewScore + stockScore + recencyScore;
-
-        return { product, score: totalScore };
-      })
+      .map((product) => ({
+        product,
+        score: calculateProductScore(product, now), // Reusable call
+      }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map((item) => item.product);
 
-    // 4. Calculate Site-wide Discounts
     const activeDiscount = await this.fetchActiveSiteWideDiscount();
     const transformedProducts = rankedProducts.map((p) =>
       calculateGlobalDiscount(p, activeDiscount),
     );
 
-    const response = {
-      success: true,
-      data: transformedProducts,
-    };
-
-    // 5. Cache response for 10 minutes (600s)
+    const response = { success: true, data: transformedProducts };
     await this.cacheService.setex(cacheKey, 600, JSON.stringify(response));
 
     return response;

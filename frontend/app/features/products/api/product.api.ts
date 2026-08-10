@@ -17,6 +17,8 @@ import type {
   RestoreProductResponse,
   HardDeleteResponse,
   FeaturedProductsResponse,
+  FilteredProductsResponse,
+  GetProductsFilterParams,
 } from '../types/product-response.types';
 
 // ─── Image URL helper ─────────────────────────────────────────────────────────
@@ -85,3 +87,18 @@ export const hardDeleteProduct = (id: string) =>
 // features/products/api/product.api.ts (addition)
 export const getFeaturedProducts = () =>
   get<FeaturedProductsResponse>("/products/featured-products");
+
+export const getFilteredProducts = (params: GetProductsFilterParams = {}) => {
+  const queryParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      queryParams.append(key, String(value));
+    }
+  });
+
+  const queryString = queryParams.toString();
+  return get<FilteredProductsResponse>(
+    `/products${queryString ? `?${queryString}` : ""}`
+  );
+};

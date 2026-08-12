@@ -1,7 +1,9 @@
-// features/products/components/MediaSection.tsx
+"use client";
+
 import React, { useRef, useState } from "react";
 import { useFormContext, useFieldArray } from "react-hook-form";
 import { ChevronDown, ChevronRight, ImageIcon, Folder, Trash2, AlertCircle } from "lucide-react";
+import { AppImage } from "@/app/components/ui/AppImage";
 import type { ProductFormData } from "@/app/features/products/schemas/product.schema";
 
 interface MediaSectionProps {
@@ -10,31 +12,10 @@ interface MediaSectionProps {
   onUploadFiles: (files: File[]) => void;
 }
 
-// Backend API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-const resolveImageUrl = (url?: string): string => {
-  if (!url || url === "undefined" || url === "null" || url.trim() === "") {
-    return "";
-  }
-
-  // Pehle se full URL ho ya blob: preview URL ho
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
-    return url;
-  }
-
-  // Relative path ke sath Base URL concatenate karein
-  const cleanPath = url.startsWith("/") ? url : `/${url}`;
-  return `${API_BASE_URL}${cleanPath}`;
-};
-
 const MediaSection: React.FC<MediaSectionProps> = ({ isOpen, onToggle, onUploadFiles }) => {
   const { control, register, watch } = useFormContext<ProductFormData>();
   const { fields, remove } = useFieldArray({ control, name: "images" });
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Track image loading errors per index
-  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
 
   const watchedImages = watch("images");
 
@@ -44,10 +25,6 @@ const MediaSection: React.FC<MediaSectionProps> = ({ isOpen, onToggle, onUploadF
       onUploadFiles(files);
     }
     if (e.target) e.target.value = "";
-  };
-
-  const handleImageError = (index: number) => {
-    setFailedImages((prev) => ({ ...prev, [index]: true }));
   };
 
   return (
@@ -110,35 +87,19 @@ const MediaSection: React.FC<MediaSectionProps> = ({ isOpen, onToggle, onUploadF
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {fields.map((field, index) => {
                 const rawUrl = watchedImages?.[index]?.url || (field as any).url;
-                const previewUrl = resolveImageUrl(rawUrl);
-                const isLoadFailed = failedImages[index];
-
+                
                 return (
                   <div key={field.id} className="relative bg-white border-2 border-[#e2e8f0] rounded-[14px] overflow-hidden p-3 flex flex-col gap-2">
-                    {/* Image Container */}
+                    {/* Image Container with AppImage */}
                     <div className="relative h-[140px] bg-[#f8fafc] rounded-[8px] overflow-hidden flex items-center justify-center border border-[#f1f5f9]">
-                      {previewUrl && !isLoadFailed ? (
-                        <img
-                          src={previewUrl}
-                          alt={`Product asset ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={() => handleImageError(index)}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-1.5 p-2 text-center text-[#94a3b8]">
-                          {isLoadFailed ? (
-                            <>
-                              <AlertCircle size={26} className="text-amber-500" />
-                              <span className="text-[11px] font-medium text-amber-600">Failed to load preview</span>
-                            </>
-                          ) : (
-                            <>
-                              <ImageIcon size={26} />
-                              <span className="text-[11px] font-medium">No Image Preview</span>
-                            </>
-                          )}
-                        </div>
-                      )}
+                      <AppImage
+                        src={rawUrl}
+                        alt={`Product asset ${index + 1}`}
+                        width={300}
+                        height={140}
+                        className="w-full h-full object-cover"
+                        iconSize={32}
+                      />
                     </div>
 
                     {/* Hidden RHF Inputs */}

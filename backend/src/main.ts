@@ -16,6 +16,16 @@ async function bootstrap() {
       rawBody: true,
     });
 
+
+    app.use(
+  json({
+    limit: '10mb',
+    verify: (req: any, _res, buf) => {
+      // Direct express request par rawBody attach kar dein
+      req.rawBody = buf;
+    },
+  }),
+);
     // 1. Helmet Security Options (Updated to allow cross-origin images)
     app.use(
       helmet({

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CartItem } from '../../cart/types/cart'                    // ← single source
+import { CartItem } from '../../public/cart/types/cart'                    // ← single source
 import { modals }   from '@/hooks/store/useModalStore'
 
 const CART_KEY   = 'cart'

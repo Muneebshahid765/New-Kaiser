@@ -2,7 +2,7 @@
 
 import React            from 'react'
 import Link             from 'next/link'
-import { useCart }      from '../home/hooks/useCart'
+import { useCart }      from '../../home/hooks/useCart'
 import CheckoutSummary  from './CheckOutCard'
 import StockBadge       from './StockBadge'
 import { AppImage }     from '@/app/components/ui/AppImage'

@@ -317,3 +317,9 @@ export interface FilteredProductsResponse {
   products: FilteredProductItem[];
   pagination: ProductsPagination;
 }
+
+export interface SimilarProductsResponse {
+  success:  boolean
+  products: FilteredProductItem[]  
+  total:    number
+}

@@ -38,6 +38,10 @@ import { AdminSettingsModule } from './modules/admin-settings/admin-settings.mod
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { FaqModule } from './modules/Public/public.module';
+import { WebhookModule } from './modules/webhooks/webhook.module';
+import { SubscriptionModule } from './modules/subscriptions/subscription.module';
+import { StripeModule } from './core/stripe/stripe.module';
+import { OrderModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -69,7 +73,11 @@ import { FaqModule } from './modules/Public/public.module';
     AdminSettingsModule,
     CategoriesModule,
     ProductsModule,
-    FaqModule
+    FaqModule,
+    WebhookModule,
+    SubscriptionModule,
+    StripeModule,
+    OrderModule
   ],
   controllers: [AppController],
   providers: [

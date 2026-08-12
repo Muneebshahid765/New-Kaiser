@@ -1,4 +1,7 @@
+/*eslint-disable*/
 // src/common/utils/discount.util.ts
+
+import { PrismaService } from "src/core/database/prisma.service";
 
 export interface DiscountedProduct<T> {
   transformed: T;
@@ -25,4 +28,18 @@ export function calculateGlobalDiscount<T extends Record<string, any>>(
     price: Math.round(discountedPrice),
     appliedDiscount: discountPercent,
   };
+}
+
+export async function fetchActiveSiteWideDiscount(prisma: PrismaService): Promise<number> {
+  const settings = await prisma.adminSettings.findFirst()
+  
+  if (
+    settings?.discountEnabled &&
+    settings.discountEndDate &&
+    new Date() < new Date(settings.discountEndDate)
+  ) {
+    return Number(settings.discountPercentage) || 0
+  }
+
+  return 0
 }

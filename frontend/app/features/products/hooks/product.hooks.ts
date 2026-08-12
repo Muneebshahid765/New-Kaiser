@@ -10,6 +10,7 @@ import {
   getFilteredProducts,
   getInventory,
   getProduct,
+  getSimilarProducts,
   hardDeleteProduct,
   restoreProduct,
   updateProduct,
@@ -32,6 +33,7 @@ import type {
   FeaturedProductItem,
   GetProductsFilterParams,
   FilteredProductsResponse,
+  SimilarProductsResponse,
 } from '../types/product-response.types';
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -50,6 +52,10 @@ export const PRODUCTS_QUERY_KEY = (params: GetProductsFilterParams) => [
   "list",
   params,
 ];
+
+export const SIMILAR_PRODUCTS_KEY = (productId: string) =>
+  ['products', 'similar', productId] as const
+
 
 export function usePublicProducts(params: GetProductsFilterParams = {}) {
   return useQuery<FilteredProductsResponse, Error>({
@@ -102,6 +108,17 @@ export function useInventory(query: {
     staleTime: 1_000 * 60 * 2,
     retry: false,
   });
+}
+
+
+
+export function useSimilarProducts(productId: string, categoryId: string) {
+  return useQuery<SimilarProductsResponse, Error>({
+    queryKey: SIMILAR_PRODUCTS_KEY(productId),
+    queryFn:  () => getSimilarProducts(productId, categoryId),
+    enabled:  Boolean(productId && categoryId),   // dono ho tab hi fetch karo
+    staleTime: 1_000 * 60 * 5,
+  })
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────────

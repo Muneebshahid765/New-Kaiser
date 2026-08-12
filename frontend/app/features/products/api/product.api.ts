@@ -19,6 +19,7 @@ import type {
   FeaturedProductsResponse,
   FilteredProductsResponse,
   GetProductsFilterParams,
+  SimilarProductsResponse,
 } from '../types/product-response.types';
 
 // ─── Image URL helper ─────────────────────────────────────────────────────────
@@ -102,3 +103,9 @@ export const getFilteredProducts = (params: GetProductsFilterParams = {}) => {
     `/products${queryString ? `?${queryString}` : ""}`
   );
 };
+
+// features/products/api/product.api.ts — add karo
+export const getSimilarProducts = (productId: string, categoryId: string) =>
+  get<SimilarProductsResponse>(`/products/${productId}/similar`, {
+    params: { categoryId },
+  })

@@ -9,7 +9,7 @@ import { PrismaService } from 'src/core/database/prisma.service';
 import { ImageDedupService } from '../uploads/services/image.service';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 import { ImageFolder, UsageModel, CategoryStatus, ProductStatus, Prisma } from '@prisma/client';
-import { isUUID, calculateGlobalDiscount, cleanObject } from '../../common/utils';
+import { isUUID, calculateGlobalDiscount, cleanObject, fetchActiveSiteWideDiscount } from '../../common/utils';
 import slugify from 'slugify';
 import { CacheService } from 'src/core/cache/redis/cache.service';
 import { BulkUpdateProductDto } from './dto/bulk-update-product.dto';
@@ -468,7 +468,7 @@ if (dto.images !== undefined) {
       throw new NotFoundException('Product not found');
     }
 
-    const discount = await this.fetchActiveSiteWideDiscount();
+    const discount = await fetchActiveSiteWideDiscount(this.prisma);
     const transformed = calculateGlobalDiscount(product, discount);
 
     const response = { success: true, product: transformed };
@@ -558,7 +558,7 @@ if (filterDto.minRating) {
     this.prisma.product.count({ where }),
   ])
 
-  const activeDiscount = await this.fetchActiveSiteWideDiscount()
+  const activeDiscount = await fetchActiveSiteWideDiscount(this.prisma)
   const products = rawProducts.map((p) => calculateGlobalDiscount(p, activeDiscount))
 
   const response = {
@@ -620,7 +620,7 @@ async getFeaturedProducts() {
       .slice(0, 5)
       .map((item) => item.product);
 
-    const activeDiscount = await this.fetchActiveSiteWideDiscount();
+    const activeDiscount = await fetchActiveSiteWideDiscount(this.prisma)
     const transformedProducts = rankedProducts.map((p) =>
       calculateGlobalDiscount(p, activeDiscount),
     );
@@ -631,24 +631,47 @@ async getFeaturedProducts() {
     return response;
   }
 
-  private async clearProductCache(id?: string, slug?: string) {
-    if (id) await this.cacheService.del(`products:single:${id}`);
-    if (slug) await this.cacheService.del(`products:single:${slug}`);
-    await this.cacheService.delByPattern('products:list:*');
-  }
+  // ─── Similar Products — same category, current product exclude ────────────────
+async getSimilarProducts(productId: string, categoryId: string) {
+  const cacheKey = `products:similar:${productId}`
+  const cached   = await this.cacheService.get(cacheKey)
+  if (cached) return typeof cached === 'string' ? JSON.parse(cached) : cached
 
+  const rawProducts = await this.prisma.product.findMany({
+    where: {
+      categoryId,
+      id:      { not: productId },   // current product exclude
+      status:  'active',
+      deleted: false,
+    },
+    take:    4,
+    orderBy: [
+      { totalReviews:  'desc' },
+      { averageRating: 'desc' },
+      { createdAt:     'desc' },
+    ],
+    select: {
+      id:            true,
+      name:          true,
+      slug:          true,
+      price:         true,
+      originalPrice: true,
+      stockQuantity: true,
+      averageRating: true,
+      totalReviews:  true,
+      category: { select: { id: true, name: true, slug: true } },
+      images:   { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true, title: true } },
+      labels:   { orderBy: { sortOrder: 'asc' },          select: { text: true, variant: true } },
+    },
+  })
 
-  private async fetchActiveSiteWideDiscount(): Promise<number> {
-    const settings = await this.prisma.adminSettings.findFirst();
-    if (
-      settings?.discountEnabled &&
-      settings.discountEndDate &&
-      new Date() < settings.discountEndDate
-    ) {
-      return Number(settings.discountPercentage) || 0;
-    }
-    return 0;
-  }
+  const discount  = await fetchActiveSiteWideDiscount(this.prisma)
+  const products  = rawProducts.map(p => calculateGlobalDiscount(p, discount))
+
+  const response  = { success: true, products, total: products.length }
+  await this.cacheService.setex(cacheKey, 300, JSON.stringify(response))
+  return response
+}
 
  /**
    * Inventory List + Aggregated Header Stats
@@ -1121,5 +1144,12 @@ async hardDeleteProduct(id: string) {
     productId: id,
   };
 }
+
+  private async clearProductCache(id?: string, slug?: string) {
+    if (id) await this.cacheService.del(`products:single:${id}`);
+    if (slug) await this.cacheService.del(`products:single:${slug}`);
+    await this.cacheService.delByPattern('products:list:*');
+  }
+
 
 }

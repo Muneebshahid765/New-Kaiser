@@ -2,7 +2,7 @@
 
 import React, { useMemo }  from 'react'
 import Link                from 'next/link'
-import StockBadge          from '../../cart/StockBadge'
+import StockBadge          from '../cart/StockBadge'
 import { AppImage }        from '@/app/components/ui/AppImage'
 import type {
   FilteredProductItem,

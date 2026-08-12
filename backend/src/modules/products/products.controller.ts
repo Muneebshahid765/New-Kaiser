@@ -13,6 +13,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 
 import { ProductsService } from './products.service';
@@ -77,6 +78,16 @@ export class ProductsController {
       product,
     };
   }
+
+@Public()
+@Get(':id/similar')
+getSimilarProducts(
+  @Param('id', ParseUUIDPipe) id:         string,
+  @Query('categoryId')        categoryId: string,
+) {
+  if (!categoryId) throw new BadRequestException('categoryId is required')
+  return this.productsService.getSimilarProducts(id, categoryId)
+}
 
 
 @Public()

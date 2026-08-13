@@ -2,17 +2,16 @@
 
 import React from "react";
 import Link from "next/link";
-import { AppImage } from "@/components/ui/AppImage";
-import StockBadge from "@/components/StockBadge";
-import { isOutOfStock } from "@/utils/stockUtils";
-import type { Product } from "@/types/product";
+import { AppImage } from "@/app/components/ui/AppImage";
+import StockBadge from "../cart/StockBadge";
+import type { PublicProductDetail } from "@/app/features/products/types/product-response.types";
 
 interface SimilarProductsSectionProps {
-  similarProducts: Product[];
+  similarProducts: PublicProductDetail[] | any[];
 }
 
 export const SimilarProductsSection: React.FC<SimilarProductsSectionProps> = ({
-  similarProducts,
+  similarProducts = [],
 }) => {
   if (!similarProducts?.length) return null;
 
@@ -30,19 +29,21 @@ export const SimilarProductsSection: React.FC<SimilarProductsSectionProps> = ({
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
           {similarProducts.map((product, index) => {
-            const outOfStock = isOutOfStock(product);
-            const imageUrl = product.imageUrl
-              ? product.imageUrl.startsWith("http")
-                ? product.imageUrl
-                : `${process.env.NEXT_PUBLIC_API_URL}${product.imageUrl}`
-              : product.images?.[0]?.url
-              ? `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].url}`
-              : "/products/placeholder.png";
+            const outOfStock = typeof product?.stockQuantity === "number" ? product.stockQuantity <= 0 : false;
+            
+            // Image URL resolution for both relative and full URLs
+            const rawImageUrl = product.images?.[0]?.url || product.imageUrl || "/products/placeholder.png";
+            const imageUrl = rawImageUrl.startsWith("http") || rawImageUrl.startsWith("/")
+              ? rawImageUrl
+              : `${process.env.NEXT_PUBLIC_API_URL || ""}${rawImageUrl}`;
+
+            const productId = product.id || product._id || index;
+            const productSlug = product.slug || productId;
 
             return (
               <Link
-                key={product._id || index}
-                href={`/product/${product.slug || product._id}`}
+                key={productId}
+                href={`/products/${productSlug}`}
                 className="bg-[#f7f4ef] border border-[#e5ddd0] rounded-xl overflow-hidden transition-all hover:-translate-y-1.5 hover:shadow-[0_8px_32px_rgba(74,51,32,0.1)] hover:border-[#c8b99a]"
               >
                 <div className="relative aspect-square overflow-hidden bg-[#f1ece4]">
@@ -65,7 +66,7 @@ export const SimilarProductsSection: React.FC<SimilarProductsSectionProps> = ({
                   )}
                 </div>
                 <div className="p-4">
-                  {product.averageRating > 0 && (
+                  {(product.averageRating || 0) > 0 && (
                     <div className="flex items-center gap-1 text-sm text-amber-600 mb-1.5">
                       {"★".repeat(Math.round(product.averageRating || 0))}
                       {"☆".repeat(5 - Math.round(product.averageRating || 0))}
@@ -76,7 +77,7 @@ export const SimilarProductsSection: React.FC<SimilarProductsSectionProps> = ({
                     {product.name}
                   </h4>
                   <span className="font-playfair text-base font-bold text-[#1a1208]">
-                    ${(product.price || 0).toFixed(2)}
+                    ${Number(product.price || 0).toFixed(2)}
                   </span>
                   <div className="mt-2">
                     <StockBadge product={product} showOk={false} size="sm" />

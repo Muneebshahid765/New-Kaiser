@@ -20,6 +20,7 @@ import type {
   FilteredProductsResponse,
   GetProductsFilterParams,
   SimilarProductsResponse,
+  GetPublicProductDetailResponse,
 } from '../types/product-response.types';
 
 // ─── Image URL helper ─────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ export const hardDeleteProduct = (id: string) =>
 
 // features/products/api/product.api.ts (addition)
 export const getFeaturedProducts = () =>
-  get<FeaturedProductsResponse>("/products/featured-products");
+  get<FeaturedProductsResponse>("/public-products/featured-products");
 
 export const getFilteredProducts = (params: GetProductsFilterParams = {}) => {
   const queryParams = new URLSearchParams();
@@ -100,12 +101,17 @@ export const getFilteredProducts = (params: GetProductsFilterParams = {}) => {
 
   const queryString = queryParams.toString();
   return get<FilteredProductsResponse>(
-    `/products${queryString ? `?${queryString}` : ""}`
+    `/public-products${queryString ? `?${queryString}` : ""}`
   );
 };
 
 // features/products/api/product.api.ts — add karo
 export const getSimilarProducts = (productId: string, categoryId: string) =>
-  get<SimilarProductsResponse>(`/products/${productId}/similar`, {
+  get<SimilarProductsResponse>(`/public-products/${productId}/similar`, {
     params: { categoryId },
   })
+
+// features/products/api/product.api.ts
+
+export const getPublicProductDetail = (param: string) =>
+  get<GetPublicProductDetailResponse>(`/public-products/detail/${param}`);

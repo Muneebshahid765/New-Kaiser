@@ -126,7 +126,7 @@
   animation: logoScroll 12s linear infinite;
 }
 
-.hover\\:animation-play-state-paused:hover {
+.hover-pause:hover {
   animation-play-state: paused;
 }
 

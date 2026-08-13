@@ -8,13 +8,12 @@ import {
 import { PrismaService } from 'src/core/database/prisma.service';
 import { ImageDedupService } from '../uploads/services/image.service';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
-import { ImageFolder, UsageModel, CategoryStatus, ProductStatus, Prisma } from '@prisma/client';
-import { isUUID, calculateGlobalDiscount, cleanObject, fetchActiveSiteWideDiscount } from '../../common/utils';
+import { UsageModel, CategoryStatus, ProductStatus, Prisma } from '@prisma/client';
+import { isUUID, calculateGlobalDiscount, fetchActiveSiteWideDiscount } from '../../common/utils';
 import slugify from 'slugify';
 import { CacheService } from 'src/core/cache/redis/cache.service';
 import { BulkUpdateProductDto } from './dto/bulk-update-product.dto';
-import { calculateProductScore } from 'src/common/utils/product-score.util';
-import { GetProductsFilter } from './dto/filter.dto';
+
 
 type PrismaTx = Prisma.TransactionClient;
 @Injectable()
@@ -198,7 +197,7 @@ async createProduct(dto: CreateProductDto) {
   }
 
 
-  async updateProduct(id: string, dto: UpdateProductDto) {
+async updateProduct(id: string, dto: UpdateProductDto) {
   const oldProduct = await this.prisma.product.findFirst({
     where: { id, deleted: false },
     include: { images: true, category: true },
@@ -439,7 +438,7 @@ if (dto.images !== undefined) {
 }
 
 
-  async findOneByIdOrSlug(param: string) {
+async adminfindOneById(param: string) {
     const cacheKey = `products:single:${param}`;
     const cached = await this.cacheService.get(cacheKey);
     if (cached) {
@@ -476,202 +475,10 @@ if (dto.images !== undefined) {
     await this.cacheService.setex(cacheKey, 300, JSON.stringify(response));
 
     return response;
-  }
-
-  async getFilteredProducts(filterDto: GetProductsFilter) {
-  const page  = Number(filterDto.page)  || 1
-  const limit = Number(filterDto.limit) || 25
-  const skip  = (page - 1) * limit
-
-  const cacheKey = `products:filtered:${JSON.stringify(filterDto)}`
-  const cached   = await this.cacheService.get(cacheKey)
-  if (cached) return typeof cached === 'string' ? JSON.parse(cached) : cached
-
-  const where: Prisma.ProductWhereInput = { status: 'active', deleted: false }
-
-  // Category
-  if (filterDto.category?.trim()) {
-    where.category = {
-      OR: [
-        { id:   filterDto.category },
-        { slug: filterDto.category },
-        { name: { equals: filterDto.category, mode: 'insensitive' } },
-      ],
-    }
-  }
-
-  // Search
-  if (filterDto.search?.trim()) {
-    where.OR = [
-      { name:        { contains: filterDto.search.trim(), mode: 'insensitive' } },
-      { description: { contains: filterDto.search.trim(), mode: 'insensitive' } },
-      { sku:         { contains: filterDto.search.trim(), mode: 'insensitive' } },
-    ]
-  }
-
-  // Price
-  if (filterDto.minPrice || filterDto.maxPrice) {
-    where.price = {}
-    if (filterDto.minPrice) where.price.gte = parseFloat(String(filterDto.minPrice))
-    if (filterDto.maxPrice) where.price.lte = parseFloat(String(filterDto.maxPrice))
-  }
-
-  // Stock
-  if (filterDto.stockFilter === 'instock')    where.stockQuantity = { gt: 0 }
-  if (filterDto.stockFilter === 'outofstock') where.stockQuantity = { lte: 0 }
-  if (filterDto.stockFilter === 'lowstock')   where.stockQuantity = { gt: 0, lte: 5 }
-
-  // On Sale  ← ✅ fix: block properly closed
-   if (filterDto.onSale === true) {
-  where.originalPrice = { not: null }
 }
-if (filterDto.minRating) {
-  where.averageRating = { gte: filterDto.minRating }
-}
-  
 
-  // Sort
-  let orderBy: Prisma.ProductOrderByWithRelationInput[] = [
-    { totalReviews: 'desc' },
-    { averageRating: 'desc' },
-    { createdAt: 'desc' },
-  ]
-  switch (filterDto.sort) {
-    case '-createdAt': orderBy = [{ createdAt: 'desc' }]; break
-    case  'createdAt': orderBy = [{ createdAt: 'asc'  }]; break
-    case    '-price':  orderBy = [{ price: 'desc'     }]; break
-    case     'price':  orderBy = [{ price: 'asc'      }]; break
-  }
 
-  const [rawProducts, totalCount] = await Promise.all([
-    this.prisma.product.findMany({
-      where, orderBy, skip, take: limit,
-      select: {
-        id: true, name: true, slug: true, sku: true,
-        price: true, originalPrice: true, stockQuantity: true,
-        averageRating: true, totalReviews: true, createdAt: true,
-        category: { select: { id: true, name: true, slug: true } },
-        images:   { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true, title: true } },
-        labels:   { orderBy: { sortOrder: 'asc' },          select: { text: true, variant: true } },
-      },
-    }),
-    this.prisma.product.count({ where }),
-  ])
 
-  const activeDiscount = await fetchActiveSiteWideDiscount(this.prisma)
-  const products = rawProducts.map((p) => calculateGlobalDiscount(p, activeDiscount))
-
-  const response = {
-    success: true,
-    products,
-    pagination: { total: totalCount, page, limit, totalPages: Math.ceil(totalCount / limit) },
-  }
-
-  await this.cacheService.setex(cacheKey, 120, JSON.stringify(response))
-  return response
-}
-  // Refactored getFeaturedProducts to use the SAME reusable score function
-async getFeaturedProducts() {
-    const cacheKey = 'products:featured:top5';
-
-    const cached = await this.cacheService.get(cacheKey);
-    if (cached) {
-      return typeof cached === 'string' ? JSON.parse(cached) : cached;
-    }
-
-    const rawProducts = await this.prisma.product.findMany({
-      where: { status: 'active', deleted: false },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        sku: true,
-        price: true,
-        originalPrice: true,
-        stockQuantity: true,
-        averageRating: true,
-        totalReviews: true,
-        features: true,
-        highlights: true,
-        createdAt: true,
-        category: {
-          select: { id: true, name: true, slug: true },
-        },
-        images: {
-          take: 1,
-          orderBy: { sortOrder: 'asc' },
-          select: { url: true, title: true },
-        },
-        labels: {
-          orderBy: { sortOrder: 'asc' },
-          select: { text: true, variant: true },
-        },
-      },
-      take: 30,
-    });
-
-    const now = new Date().getTime();
-    const rankedProducts = rawProducts
-      .map((product) => ({
-        product,
-        score: calculateProductScore(product, now), // Reusable call
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map((item) => item.product);
-
-    const activeDiscount = await fetchActiveSiteWideDiscount(this.prisma)
-    const transformedProducts = rankedProducts.map((p) =>
-      calculateGlobalDiscount(p, activeDiscount),
-    );
-
-    const response = { success: true, data: transformedProducts };
-    await this.cacheService.setex(cacheKey, 600, JSON.stringify(response));
-
-    return response;
-  }
-
-  // ─── Similar Products — same category, current product exclude ────────────────
-async getSimilarProducts(productId: string, categoryId: string) {
-  const cacheKey = `products:similar:${productId}`
-  const cached   = await this.cacheService.get(cacheKey)
-  if (cached) return typeof cached === 'string' ? JSON.parse(cached) : cached
-
-  const rawProducts = await this.prisma.product.findMany({
-    where: {
-      categoryId,
-      id:      { not: productId },   // current product exclude
-      status:  'active',
-      deleted: false,
-    },
-    take:    4,
-    orderBy: [
-      { totalReviews:  'desc' },
-      { averageRating: 'desc' },
-      { createdAt:     'desc' },
-    ],
-    select: {
-      id:            true,
-      name:          true,
-      slug:          true,
-      price:         true,
-      originalPrice: true,
-      stockQuantity: true,
-      averageRating: true,
-      totalReviews:  true,
-      category: { select: { id: true, name: true, slug: true } },
-      images:   { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true, title: true } },
-      labels:   { orderBy: { sortOrder: 'asc' },          select: { text: true, variant: true } },
-    },
-  })
-
-  const discount  = await fetchActiveSiteWideDiscount(this.prisma)
-  const products  = rawProducts.map(p => calculateGlobalDiscount(p, discount))
-
-  const response  = { success: true, products, total: products.length }
-  await this.cacheService.setex(cacheKey, 300, JSON.stringify(response))
-  return response
-}
 
  /**
    * Inventory List + Aggregated Header Stats
@@ -1144,6 +951,8 @@ async hardDeleteProduct(id: string) {
     productId: id,
   };
 }
+
+
 
   private async clearProductCache(id?: string, slug?: string) {
     if (id) await this.cacheService.del(`products:single:${id}`);

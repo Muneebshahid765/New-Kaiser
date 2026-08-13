@@ -2,47 +2,48 @@
 import {
   Body,
   Controller,
-  Post,
-  UseGuards,
-  Put,
-  Param,
-  Get,
-  Patch,
-  Query,
-  ParseUUIDPipe,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
 
 import { ProductsService } from './products.service';
-
-
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AppRole, Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/validation.pipe';
-import { type CreateProductDto, CreateProductSchema, type UpdateProductDto, UpdateProductSchema } from './dto/create-product.dto';
-import { Public } from 'src/common/decorators/public.decorator';
-import { type BulkUpdateProductDto, BulkUpdateProductSchema } from './dto/bulk-update-product.dto';
-import {type GetProductsFilter } from './dto/filter.dto';
+
+import {
+  type CreateProductDto,
+  CreateProductSchema,
+  type UpdateProductDto,
+  UpdateProductSchema,
+} from './dto/create-product.dto';
+import {
+  type BulkUpdateProductDto,
+  BulkUpdateProductSchema,
+} from './dto/bulk-update-product.dto';
+
 
 @Controller('products')
 @UseGuards(RolesGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  @Public()  
-@Get()
-  async getProducts(@Query() query: GetProductsFilter) {
-    return this.productsService.getFilteredProducts(query);
-  }
-
-
-
-
+  // =========================================================================
+  // 2. PROTECTED / ADMIN STATIC ROUTES
+  // =========================================================================
 
   @Get('inventory')
+  @Roles(AppRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async getInventory(
     @Query('page') page?: string,
@@ -50,24 +51,20 @@ export class ProductsController {
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+
     return this.productsService.getInventoryData({
-      page: Number(page) || 1,
-      limit: Number(limit) || 10,
+      page: Number.isNaN(parsedPage) ? 1 : parsedPage,
+      limit: Number.isNaN(parsedLimit) ? 10 : parsedLimit,
       search,
       status,
     });
   }
 
-  @Public()
-  @Get('featured-products')
-  @HttpCode(HttpStatus.OK)
-  async getFeaturedProducts() {
-    return this.productsService.getFeaturedProducts();
-  }
-
-    @Post('create')
-    @HttpCode(HttpStatus.OK)
+  @Post('create')
   @Roles(AppRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
   async createProduct(
     @Body(ZodValidationPipe.for(CreateProductSchema)) dto: CreateProductDto,
   ) {
@@ -79,31 +76,32 @@ export class ProductsController {
     };
   }
 
-@Public()
-@Get(':id/similar')
-getSimilarProducts(
-  @Param('id', ParseUUIDPipe) id:         string,
-  @Query('categoryId')        categoryId: string,
-) {
-  if (!categoryId) throw new BadRequestException('categoryId is required')
-  return this.productsService.getSimilarProducts(id, categoryId)
-}
-
-
-@Public()
-@Get(':param')
-@HttpCode(HttpStatus.OK)
-  async getOne(@Param('param') param: string) {
-    return this.productsService.findOneByIdOrSlug(param);
+  @Patch('bulk-update')
+  @Roles(AppRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async bulkUpdateProducts(
+    @Body(ZodValidationPipe.for(BulkUpdateProductSchema))
+    dto: BulkUpdateProductDto,
+  ) {
+    return this.productsService.bulkUpdate(dto);
   }
 
-  // -------------------------------------------------------------
-  // PUT /api/v1/products/admin/:id (Admin Product Update)
-  // -------------------------------------------------------------
-  @Put('admin/:id')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(RolesGuard)
+
+
+  // =========================================================================
+  // 4. PROTECTED / ADMIN PARAMETERIZED ROUTES
+  // =========================================================================
+
+  @Post(':id/duplicate')
   @Roles(AppRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async duplicateProduct(@Param('id', ParseUUIDPipe) id: string) {
+    return this.productsService.duplicateProduct(id);
+  }
+
+  @Put('admin/:id')
+  @Roles(AppRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
   async updateAdmin(
     @Param('id') id: string,
     @Body(ZodValidationPipe.for(UpdateProductSchema)) dto: UpdateProductDto,
@@ -111,49 +109,32 @@ getSimilarProducts(
     return this.productsService.updateProduct(id, dto);
   }
 
-
-
-  /**
-   * 2. PATCH Bulk Update Products (Industry Standard Bulk Endpoint)
-   * Target UI: PATCH /admin/products/bulk-update
-   */
-  @Patch('bulk-update')
-  @HttpCode(HttpStatus.OK)
-  async bulkUpdateProducts(
-    @Body(ZodValidationPipe.for(BulkUpdateProductSchema)) dto: BulkUpdateProductDto,
-  ) {
-    return this.productsService.bulkUpdate(dto);
-  }
-
-  /**
-   * 3. POST Duplicate Single Product
-   * Target UI: POST /admin/products/:id/duplicate
-   */
-  @Post(':id/duplicate')
-  @HttpCode(HttpStatus.OK)
-  async duplicateProduct(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productsService.duplicateProduct(id);
-  }
- //soft Delete//
   @Delete('admin/:id/soft')
+  @Roles(AppRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async deleteProduct(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.softDeleteProduct(id);
   }
-  /**
-   * 4. PATCH Restore Soft-Deleted Product
-   * Target UI: PATCH /admin/products/:id/restore
-   */
+
   @Patch('admin/:id/restore')
+  @Roles(AppRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async restoreProduct(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.restoreProduct(id);
   }
 
-    @Delete('admin/:id/hard')
+  @Delete('admin/:id/hard')
+  @Roles(AppRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async hardDelete(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.hardDeleteProduct(id);
   }
 
+  // Note: Wildcard/Generic param routes should stay near the bottom to avoid blocking other endpoints
+  @Get(':param')
+  @Roles(AppRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getOne(@Param('param') param: string) {
+    return this.productsService.adminfindOneById(param);
+  }
 }

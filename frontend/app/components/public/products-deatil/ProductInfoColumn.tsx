@@ -3,13 +3,18 @@
 import React from "react";
 import Link from "next/link";
 import { Package, CheckCircle } from "lucide-react";
-import { AppImage } from "@/components/ui/AppImage";
-import StockBadge from "@/components/StockBadge";
-import type { Product, ProductVariant } from "@/types/product";
+import { AppImage } from "@/app/components/ui/AppImage";
+import StockBadge from "../cart/StockBadge";
+import type { PublicProductDetail } from "@/app/features/products/types/product-response.types";
+
+export interface ProductVariant {
+  name: string;
+  image?: string;
+}
 
 interface ProductInfoColumnProps {
-  productInfoRef: React.RefObject<HTMLDivElement>;
-  currentProduct: Product;
+  productInfoRef: React.RefObject<HTMLDivElement | null>;
+  currentProduct: PublicProductDetail | any;
   labels: Array<{ text: string; variant?: string }>;
   heroContent: { subtitle?: string; ctaText?: string; ctaLink?: string };
   normalizedFeatures: string[];
@@ -46,10 +51,10 @@ interface ProductInfoColumnProps {
 export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
   productInfoRef,
   currentProduct,
-  labels,
+  labels = [],
   heroContent,
-  normalizedFeatures,
-  variants,
+  normalizedFeatures = [],
+  variants = [],
   selectedVariant,
   setSelectedVariant,
   isSubscribe,
@@ -69,10 +74,10 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
   handleAddToCart,
   openAccordion,
   setOpenAccordion,
-  ingredients,
+  ingredients = [],
   hasDeliveryRule,
   hasInsuranceDetails,
-  normalizedFeaturesAll,
+  normalizedFeaturesAll = [],
   renderStars,
   averageRatingValue,
   totalReviews,
@@ -86,6 +91,10 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
     purple: { bg: "#6b21a8", text: "#ffffff", border: "#6b21a8" },
   };
 
+  const categoryName = typeof currentProduct?.category === "object"
+    ? currentProduct.category?.name
+    : currentProduct?.category || "Category";
+
   return (
     <div ref={productInfoRef} className="flex flex-col gap-5 animate-[fadeUp_0.55s_0.1s_ease_both]">
       {/* Breadcrumb */}
@@ -94,9 +103,7 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
         <span className="text-[#e0d5c5]">/</span>
         <Link href="/products" className="hover:text-[#8b6240] transition-colors">Products</Link>
         <span className="text-[#e0d5c5]">/</span>
-        <span className="text-[#7a6558]">
-          {currentProduct.category?.name || currentProduct.category}
-        </span>
+        <span className="text-[#7a6558]">{categoryName}</span>
       </nav>
 
       {/* Labels */}
@@ -123,11 +130,11 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
 
       {/* Title */}
       <h1 className="font-playfair text-2xl sm:text-3xl lg:text-[2.8rem] font-black text-[#1a1208] leading-tight tracking-[-0.4px]">
-        {currentProduct.name}
+        {currentProduct?.name}
       </h1>
 
       {/* Subtitle */}
-      {heroContent.subtitle && (
+      {heroContent?.subtitle && (
         <p className="text-sm font-medium text-[#7a6558] -mt-2 tracking-[0.3px]">
           {heroContent.subtitle}
         </p>
@@ -147,7 +154,7 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
       {/* Rating */}
       {(hasReviews || totalReviews > 0) && (
         <div className="flex items-center gap-2">
-          <div className="flex gap-0.5">{renderStars(currentProduct.averageRating || 0, "sm")}</div>
+          <div className="flex gap-0.5">{renderStars(currentProduct?.averageRating || 0, "sm")}</div>
           <span className="text-sm font-medium text-[#7a6558]">
             {averageRatingValue} ({totalReviews} {totalReviews === 1 ? "review" : "reviews"})
           </span>
@@ -230,7 +237,7 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
           </span>
           <span className="text-sm font-semibold text-[#2e2015] flex-1">One-time Purchase</span>
           <span className="font-playfair text-lg font-bold text-[#1a1208]">
-            ${currentProduct.price?.toFixed(2)}
+            ${typeof currentProduct?.price === "number" ? currentProduct.price.toFixed(2) : "0.00"}
           </span>
         </button>
 
@@ -330,7 +337,7 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
         >
           {outOfStock ? "Out of Stock" : `Add to Cart · $${(parseFloat(currentPrice || "0") * quantity).toFixed(2)}`}
         </button>
-        {heroContent.ctaText && heroContent.ctaLink && (
+        {heroContent?.ctaText && heroContent?.ctaLink && (
           <a
             href={heroContent.ctaLink}
             target="_blank"
@@ -366,7 +373,7 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
                 {key === "description" && (
                   <>
                     <p className="text-sm text-[#4a3a28] leading-relaxed">
-                      {currentProduct.description || "No description available."}
+                      {currentProduct?.description || "No description available."}
                     </p>
                     {normalizedFeaturesAll.length > 0 && (
                       <ul className="mt-3 space-y-1.5">
@@ -401,15 +408,15 @@ export const ProductInfoColumn: React.FC<ProductInfoColumnProps> = ({
                 {key === "shipping" && (
                   <div className="space-y-2 text-sm text-[#4a3a28]">
                     <p>Free shipping on orders over $50. Standard delivery 3–5 business days.</p>
-                    {currentProduct.deliveryCharges > 0 && (
-                      <p>Delivery charges: ${currentProduct.deliveryCharges?.toFixed(2)}</p>
-                    )}
-                    {hasDeliveryRule && <p>{currentProduct.deliveryRule}</p>}
+                    {Number(currentProduct?.deliveryCharges) > 0 && (
+  <p>Delivery charges: ${Number(currentProduct?.deliveryCharges).toFixed(2)}</p>
+)}
+                    {hasDeliveryRule && <p>{currentProduct?.deliveryRule}</p>}
                   </div>
                 )}
                 {key === "insurance" && (
                   <p className="text-sm text-[#4a3a28]">
-                    {hasInsuranceDetails ? currentProduct.insuranceDetails : "Insurance information not available."}
+                    {hasInsuranceDetails ? currentProduct?.insuranceDetails : "Insurance information not available."}
                   </p>
                 )}
               </div>

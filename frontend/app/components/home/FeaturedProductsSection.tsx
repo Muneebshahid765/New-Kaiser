@@ -249,7 +249,7 @@ export const FeaturedProductsSection: React.FC<FeaturedProductsSectionProps> = (
                       <div className="flex flex-wrap gap-3">
                         <motion.button
                           className="flex-1 min-w-[120px] px-4 py-2.5 bg-transparent border border-stone-300 text-stone-700 font-semibold rounded-full hover:bg-stone-50 transition-all"
-                          onClick={() => router.push(`/product/${product.slug}`)}
+                          onClick={() => router.push(`/products/${product.slug}`)}
                           whileHover={{ scale: 1.03, y: -1 }}
                           whileTap={{ scale: 0.98 }}
                         >

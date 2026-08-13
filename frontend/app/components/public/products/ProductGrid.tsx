@@ -127,7 +127,7 @@ const ProductGrid: React.FC<ProductGridProps> = ({
                     </p>
                   </div>
                   <Link
-                    href={`/product/${product.slug}`}
+                    href={`/products/${product.slug}`}
                     className="relative inline-flex items-center justify-center gap-1.5 w-full px-5 py-2.5 rounded-full bg-gradient-to-r from-[#b57d30] via-[#f0b458] to-[#f7d28d] text-[#3b210d] font-semibold no-underline text-sm shadow-[0_12px_25px_rgba(181,125,48,0.35)] transition-all duration-300 hover:translate-x-1 group/link"
                   >
                     View Details

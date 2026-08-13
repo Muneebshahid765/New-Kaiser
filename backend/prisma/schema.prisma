@@ -709,7 +709,7 @@ model Review {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([productId, orderId])
-  @@index([productId, status])
+  @@index([productId, status, createdAt(sort: Desc)])
   @@index([userEmail])
   @@map("reviews")
 }

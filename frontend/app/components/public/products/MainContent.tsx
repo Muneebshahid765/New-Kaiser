@@ -95,29 +95,32 @@ export default function ProductsPage() {
   const products   = data?.products   ?? []
   const pagination = data?.pagination
 
-  // ── URL sync + state update (single function) ─────────────────────────────
-  const updateFilters = useCallback((updates: Partial<FilterState>) => {
-    setFilters(prev => {
-      const next = { ...prev, ...updates }
+  
+const updateFilters = useCallback((updates: Partial<FilterState>) => {
+  setFilters(prev => {
+    const next = { ...prev, ...updates }
 
-      const params = new URLSearchParams()
-      if (next.category)                  params.set('category',    next.category)
-      if (next.search)                    params.set('search',      next.search)
-      if (next.minPrice)                  params.set('minPrice',    next.minPrice)
-      if (next.maxPrice)                  params.set('maxPrice',    next.maxPrice)
-      if (next.sort !== DEFAULT_SORT)     params.set('sort',        next.sort)
-      if (next.stockFilter)               params.set('stockFilter', next.stockFilter)
-      if (next.onSale === 'true')         params.set('onSale',      'true')
-      if (next.minRating)                 params.set('minRating',   next.minRating)
-      if (next.page > 1)                  params.set('page',        String(next.page))
+    const params = new URLSearchParams()
+    if (next.category)                   params.set('category',    next.category)
+    if (next.search)                     params.set('search',      next.search)
+    if (next.minPrice)                   params.set('minPrice',    next.minPrice)
+    if (next.maxPrice)                   params.set('maxPrice',    next.maxPrice)
+    if (next.sort !== DEFAULT_SORT)      params.set('sort',        next.sort)
+    if (next.stockFilter)                params.set('stockFilter', next.stockFilter)
+    if (next.onSale === 'true')          params.set('onSale',      'true')
+    if (next.minRating)                  params.set('minRating',   next.minRating)
+    if (next.page > 1)                   params.set('page',        String(next.page))
 
-      router.replace(
-        `/products${params.size ? `?${params}` : ''}`,
-        { scroll: false },
-      )
-      return next
+    const newUrl = `/products${params.size ? `?${params}` : ''}`
+
+    
+    queueMicrotask(() => {
+      router.replace(newUrl, { scroll: false })
     })
-  }, [router])
+
+    return next
+  })
+}, [router])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSearch = useCallback((term: string) =>

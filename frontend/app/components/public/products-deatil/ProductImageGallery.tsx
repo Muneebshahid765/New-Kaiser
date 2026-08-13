@@ -1,14 +1,21 @@
 "use client";
 
 import React from "react";
-import { AppImage } from "@/components/ui/AppImage";
-import type { ProductImage } from "@/types/product";
+import { AppImage } from "@/app/components/ui/AppImage";
+
+// Flexible Image Schema that works with both 'url' (API) and 'src' (local)
+export interface GalleryImage {
+  url?: string;
+  src?: string;
+  title?: string;
+  description?: string;
+}
 
 interface ProductImageGalleryProps {
-  productImages: ProductImage[];
+  productImages: GalleryImage[];
   selectedImageIndex: number;
   setSelectedImageIndex: (index: number) => void;
-  currentImage: ProductImage;
+  currentImage?: GalleryImage;
   productName: string;
   hasDiscount: boolean;
   discountPercentValue: number;
@@ -18,7 +25,7 @@ interface ProductImageGalleryProps {
 }
 
 export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
-  productImages,
+  productImages = [],
   selectedImageIndex,
   setSelectedImageIndex,
   currentImage,
@@ -29,32 +36,38 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
   handleNextImage,
   outOfStock,
 }) => {
+  const activeImage = currentImage || productImages[selectedImageIndex];
+  const activeSrc = activeImage?.url || activeImage?.src || "/placeholder.jpg";
+
   return (
     <div className="lg:sticky lg:top-8 flex flex-col-reverse lg:flex-row gap-3 animate-[fadeIn_0.5s_ease_both]">
       {/* Thumbnails */}
       {productImages.length > 1 && (
         <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto lg:max-h-[600px] scrollbar-thin scrollbar-thumb-[#e0d5c5] scrollbar-track-[#f7f4ef]">
-          {productImages.map((img, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setSelectedImageIndex(i)}
-              className={`w-[72px] h-[72px] lg:w-[72px] lg:h-[72px] flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
-                selectedImageIndex === i
-                  ? "border-[#8b6240] shadow-[0_0_0_3px_rgba(139,98,64,0.12)]"
-                  : "border-[#e5ddd0] hover:border-[#b58a62]"
-              }`}
-            >
-              <AppImage
-                src={img.src}
-                alt={`${productName} ${i + 1}`}
-                width={72}
-                height={72}
-                className="w-full h-full object-cover"
-                iconSize={20}
-              />
-            </button>
-          ))}
+          {productImages.map((img, i) => {
+            const imgSrc = img.url || img.src || "/placeholder.jpg";
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSelectedImageIndex(i)}
+                className={`w-[72px] h-[72px] lg:w-[72px] lg:h-[72px] flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                  selectedImageIndex === i
+                    ? "border-[#8b6240] shadow-[0_0_0_3px_rgba(139,98,64,0.12)]"
+                    : "border-[#e5ddd0] hover:border-[#b58a62]"
+                }`}
+              >
+                <AppImage
+                  src={imgSrc}
+                  alt={`${productName} ${i + 1}`}
+                  width={72}
+                  height={72}
+                  className="w-full h-full object-cover"
+                  iconSize={20}
+                />
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -62,7 +75,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       <div className="relative flex-1">
         <div className="relative aspect-[4/5] lg:aspect-[4/5] rounded-2xl overflow-hidden bg-[#f7f4ef] border border-[#e5ddd0] min-h-[300px]">
           <AppImage
-            src={currentImage.src}
+            src={activeSrc}
             alt={productName}
             width={800}
             height={1000}
@@ -114,6 +127,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             {productImages.map((_, i) => (
               <button
                 key={i}
+                type="button"
                 onClick={() => setSelectedImageIndex(i)}
                 className={`w-1.5 h-1.5 rounded-full transition-all ${
                   selectedImageIndex === i
@@ -126,13 +140,13 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         )}
 
         {/* Image Caption */}
-        {currentImage.title && (
+        {activeImage?.title && (
           <div className="mt-3 text-center">
             <h4 className="text-sm font-semibold text-[#2e2015] font-playfair">
-              {currentImage.title}
+              {activeImage.title}
             </h4>
-            {currentImage.description && (
-              <p className="text-xs text-[#4a3a28]">{currentImage.description}</p>
+            {activeImage.description && (
+              <p className="text-xs text-[#4a3a28]">{activeImage.description}</p>
             )}
           </div>
         )}

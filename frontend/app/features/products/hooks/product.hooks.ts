@@ -10,6 +10,7 @@ import {
   getFilteredProducts,
   getInventory,
   getProduct,
+  getPublicProductDetail,
   getSimilarProducts,
   hardDeleteProduct,
   restoreProduct,
@@ -34,6 +35,7 @@ import type {
   GetProductsFilterParams,
   FilteredProductsResponse,
   SimilarProductsResponse,
+  GetPublicProductDetailResponse,
 } from '../types/product-response.types';
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -83,8 +85,16 @@ export function useFeaturedProducts() {
   });
 }
 
+export function usePublicProductDetail(param: string) {
+  return useQuery<GetPublicProductDetailResponse, Error>({
+    queryKey: PRODUCT_DETAIL_KEY(param),
+    queryFn: () => getPublicProductDetail(param),
+    enabled: Boolean(param?.trim()), // Param na ho to execution block karein
+    staleTime: 1000 * 60 * 5,       // 5 Minutes memory cache
+    retry: false,
+  });
+}
 
-// ─── Get one (public) ─────────────────────────────────────────────────────────
 export function useProduct(param: string) {
   return useQuery<GetProductResponse, Error>({
     queryKey: PRODUCT_DETAIL_KEY(param),

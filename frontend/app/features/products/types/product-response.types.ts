@@ -323,3 +323,110 @@ export interface SimilarProductsResponse {
   products: FilteredProductItem[]  
   total:    number
 }
+
+
+// ─── Detailed Public Product Sub-Interfaces ──────────────────────────────────
+
+export interface DetailedProductImage {
+  url: string;
+  title: string;
+  sortOrder: number;
+}
+
+export interface DetailedProductLabel {
+  text: string;
+  variant: LabelVariant;
+  sortOrder: number;
+}
+
+export interface DetailedPackageContent {
+  name: string;
+  description: string;
+  sortOrder: number;
+}
+
+export interface DetailedProductAttribute {
+  name: string;
+  value: string;
+  unit: string;
+  sortOrder: number;
+}
+
+export interface DetailedProductBenefit {
+  title: string;
+  description: string;
+  icon: string;
+  learnMoreUrl: string;
+  sortOrder: number;
+}
+
+export interface DetailedProductFaq {
+  question: string;
+  answer: string;
+  sortOrder: number;
+}
+
+// ─── Main Public Product Detail Object ───────────────────────────────────────
+
+export interface PublicProductDetail {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  originalPrice: number | null;
+  stockQuantity: number;
+  averageRating: number;
+  totalReviews: number;
+  deliveryCharges: number;
+  deliveryRule: string;
+  insuranceDetails: string;
+  usageInstructions: string;
+  features: string[];
+  highlights: string[];
+  specifications: Record<string, unknown>;
+  categoryId: string;
+  category: ProductCategoryRef;
+  images: DetailedProductImage[];
+  labels: DetailedProductLabel[];
+  packageContents: DetailedPackageContent[];
+  attributes: DetailedProductAttribute[];
+  benefits: DetailedProductBenefit[];
+  faqs: DetailedProductFaq[];
+  appliedDiscount?: number;
+  finalPrice?: number;
+  discountPercentage?: number;
+}
+
+// ─── Reviews Sub-Types ────────────────────────────────────────────────────────
+
+export interface ProductReviewItem {
+  id: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  buyerProfile?: {
+    id: string;
+  };
+}
+
+export interface ProductReviewsMeta {
+  nextCursor: string | null;
+  hasMore: boolean;
+  limit: number;
+}
+
+export interface ProductReviewsPayload {
+  data: ProductReviewItem[];
+  meta: ProductReviewsMeta;
+}
+
+// ─── Complete Endpoint Response ─────────────────────────────────────────────
+
+export interface GetPublicProductDetailResponse {
+  success: boolean;
+  product: PublicProductDetail;
+  reviews: ProductReviewsPayload;
+  similar: SimilarProductsResponse;
+}

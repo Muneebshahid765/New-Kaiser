@@ -2,8 +2,8 @@
 // components/admin/AdminLayout.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from './sidebar';
-import AdminHeader from './header';
+// import Sidebar from './sidebar';
+// import AdminHeader from './header';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -68,7 +68,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
     localStorage.setItem('adminSidebarState', JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
-  const toggleSidebar = useCallback(() => setIsSidebarOpen((p) => !p), []);
+  // const toggleSidebar = useCallback(() => setIsSidebarOpen((p) => !p), []);
   const closeSidebar = useCallback(() => {
     if (isMobile) setIsSidebarOpen(false);
   }, [isMobile]);
@@ -76,7 +76,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
   return (
     <div className="flex min-h-screen bg-[#f0f2f5] font-['DM_Sans',sans-serif]">
       {/* Sidebar */}
-      <Sidebar
+      {/* <Sidebar
         isOpen={isSidebarOpen}
         closeSidebar={closeSidebar}
         isMobile={isMobile}
@@ -84,7 +84,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         undeliveredOrdersCount={undeliveredOrdersCount}
         userName={userName}
         userInitials={userInitials}
-      />
+      /> */}
 
       {/* Mobile Overlay */}
       {isSidebarOpen && isMobile && (
@@ -102,7 +102,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
           ${!isMobile ? (isSidebarOpen ? 'ml-64' : 'ml-16') : 'ml-0'}
         `}
       >
-        <AdminHeader
+        {/* <AdminHeader
           toggleSidebar={toggleSidebar}
           isSidebarOpen={isSidebarOpen}
           isMobile={isMobile}
@@ -113,7 +113,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
           onRefresh={onRefreshNotifications}
           isLoading={isLoadingNotifications}
           error={notificationsError}
-        />
+        /> */}
 
         <main className="flex-1 p-7 overflow-y-auto">
           {children}

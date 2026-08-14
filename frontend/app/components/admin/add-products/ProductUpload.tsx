@@ -26,7 +26,7 @@ export const ProductFormContainer: React.FC<ProductFormContainerProps> = ({ prod
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
 
-  const initialProduct = productResponse?.product ?? productResponse?.data?.product ?? null;
+  const initialProduct = productResponse?.product ?? null;
 
   const { methods, handleUploadFiles, clearDraft, handleResetForm } = useProductForm(
   initialProduct,

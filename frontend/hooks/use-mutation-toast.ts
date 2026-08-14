@@ -1,7 +1,7 @@
 /*eslint-disable*/
 import { useMutation, type UseMutationOptions, type UseMutationResult } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ApiError } from "@/services/http";
+import { ApiError } from "@/services/https";
 
 interface MutationToastOptions<TData, TVariables> {
   successMsg?: string | ((data: TData) => string);

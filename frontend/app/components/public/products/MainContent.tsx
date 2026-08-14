@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback } from 'react'
 import { useSearchParams, useRouter }             from 'next/navigation'
 import { PackageSearch, RefreshCcw }              from 'lucide-react'
-import { usePublicProducts }                            from '@/app/features/products/hooks/product.hooks'
+import { usePublicProducts }                            from '@/app/features/products/hooks/public-product.hooks'
 import { useCategoryDropdown }                    from '@/app/features/categories/hooks/category.hooks'
 import type { GetProductsFilterParams }           from '@/app/features/products/types/product-response.types'
 import SearchBar                                  from './SearchBar'

@@ -173,7 +173,7 @@ export function BulkEditModal({
   const [success, setSuccess] = React.useState(false);
 
   const form = useForm<BulkUpdateProductFormData>({
-    resolver: zodResolver(BulkUpdateProductSchema),
+    resolver: zodResolver(BulkUpdateProductSchema) as any,
     defaultValues: {
       productIds: selectedProductIds,
       updates: {},

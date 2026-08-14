@@ -307,87 +307,118 @@ async getOrderStatus(orderId: string) {
 }
 
   // ─── ALL ORDERS (Admin) ───────────────────────────────────────────────────────
-  async getAllOrders(dto: GetOrdersFilterDto) {
-    const { page, limit, orderStatus, paymentStatus, sortBy, sortOrder, search, dateFrom, dateTo } = dto
-    const skip = (page - 1) * limit
 
-    const where: Prisma.OrderWhereInput = {}
-    if (orderStatus)   where.orderStatus   = orderStatus   as OrderStatus
-    if (paymentStatus) where.paymentStatus = paymentStatus as PaymentStatus
+  // ─── ALL ORDERS (Admin - High Performance Optimized) ──────────────────────────
+async getAllOrders(dto: GetOrdersFilterDto) {
+  const { page = 1, limit = 10, orderStatus, paymentStatus, sortBy, sortOrder, search, dateFrom, dateTo } = dto;
+  const skip = (page - 1) * limit;
 
-    if (dateFrom || dateTo) {
-      where.createdAt = {
-        ...(dateFrom && { gte: new Date(dateFrom) }),
-        ...(dateTo   && { lte: new Date(dateTo)   }),
-      }
-    }
+  const where: Prisma.OrderWhereInput = {};
 
-    if (search) {
-      where.OR = [
-        { customerName:  { contains: search, mode: 'insensitive' } },
-        { customerEmail: { contains: search, mode: 'insensitive' } },
-        { orderNumber:   { contains: search, mode: 'insensitive' } },
-      ]
-      if (/^[0-9a-f-]{36}$/i.test(search)) {
-        where.OR.push({ id: search })
-      }
-    }
+  if (orderStatus && (orderStatus as string) !== 'all') {
+    where.orderStatus = orderStatus as OrderStatus;
+  }
+  
+  if (paymentStatus && (paymentStatus as string) !== 'all') {
+    where.paymentStatus = paymentStatus as PaymentStatus;
+  }
 
-    const [orders, totalOrders, stats] = await Promise.all([
-      this.prisma.order.findMany({
-        where,
-        skip,
-        take:    limit,
-        orderBy: { [sortBy ?? 'createdAt']: sortOrder ?? 'desc' },
-        include: {
-          items: {
-            include: { product: { select: { name: true, images: { take: 1, select: { url: true } } } } },
-          },
-        },
-      }),
-      this.prisma.order.count({ where }),
-      this.prisma.order.groupBy({
-        by:     ['orderStatus'],
-        _count: { _all: true },
-        where:  { paymentStatus: { notIn: ['refunded'] } },
-      }),
-    ])
+  if (dateFrom || dateTo) {
+    where.createdAt = {
+      ...(dateFrom && { gte: new Date(dateFrom) }),
+      ...(dateTo && { lte: new Date(dateTo) }),
+    };
+  }
 
-    const [totalRevenue, newOrdersToday] = await Promise.all([
-      this.prisma.order.aggregate({
-        where:   { paymentStatus: { notIn: ['refunded'] } },
-        _sum:    { totalAmount: true },
-      }),
-      this.prisma.order.count({
-        where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
-      }),
-    ])
-
-    const statMap = Object.fromEntries(stats.map(s => [s.orderStatus, s._count._all]))
-
-    return {
-      success: true,
-      orders,
-      pagination: {
-        currentPage: page,
-        totalPages:  Math.ceil(totalOrders / limit),
-        totalOrders,
-        limit,
-        hasNextPage: skip + orders.length < totalOrders,
-        hasPrevPage: page > 1,
-      },
-      statistics: {
-        totalRevenue:      Number(totalRevenue._sum.totalAmount ?? 0),
-        pendingOrders:     statMap['pending']     ?? 0,
-        confirmedOrders:   statMap['confirmed']   ?? 0,
-        processingOrders:  statMap['processing']  ?? 0,
-        shippedOrders:     statMap['shipped']     ?? 0,
-        deliveredOrders:   statMap['delivered']   ?? 0,
-        cancelledOrders:   statMap['cancelled']   ?? 0,
-        newOrdersToday,
-      },
+  if (search?.trim()) {
+    const cleanSearch = search.trim();
+    where.OR = [
+      { customerName: { contains: cleanSearch, mode: 'insensitive' } },
+      { customerEmail: { contains: cleanSearch, mode: 'insensitive' } },
+      { orderNumber: { contains: cleanSearch, mode: 'insensitive' } },
+    ];
+    if (/^[0-9a-f-]{36}$/i.test(cleanSearch)) {
+      where.OR.push({ id: cleanSearch });
     }
   }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  // Parallel Execution: Fetch Table Records, Filtered Count, Status Breakdown, Total Revenue, and Today's Orders
+  const [orders, totalOrders, stats, totalRevenue, newOrdersToday] = await Promise.all([
+    this.prisma.order.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { [sortBy ?? 'createdAt']: sortOrder ?? 'desc' },
+      select: {
+        id: true,
+        orderNumber: true,
+        customerName: true,
+        customerEmail: true,
+        totalAmount: true,
+        orderStatus: true,
+        paymentStatus: true,
+        createdAt: true,
+        _count: {
+          select: { items: true },
+        },
+      },
+    }),
+    this.prisma.order.count({ where }),
+    this.prisma.order.groupBy({
+      by: ['orderStatus'],
+      _count: { _all: true },
+      where: { paymentStatus: { notIn: ['refunded'] } },
+    }),
+    this.prisma.order.aggregate({
+      where: { paymentStatus: { notIn: ['refunded'] } },
+      _sum: { totalAmount: true },
+    }),
+    this.prisma.order.count({
+      where: { createdAt: { gte: startOfToday } },
+    }),
+  ]);
+
+  const statMap = Object.fromEntries(stats.map((s) => [s.orderStatus, s._count._all]));
+
+  // Data Transformation: Flatten items count without extra deeply nested SQL joins
+  const formattedOrders = orders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    totalAmount: Number(order.totalAmount ?? 0),
+    orderStatus: order.orderStatus,
+    paymentStatus: order.paymentStatus,
+    createdAt: order.createdAt,
+    itemCount: order._count.items,
+  }));
+
+  return {
+    success: true,
+    orders: formattedOrders,
+    pagination: {
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalOrders / limit),
+      totalOrders,
+      limit: Number(limit),
+      hasNextPage: skip + orders.length < totalOrders,
+      hasPrevPage: page > 1,
+    },
+    statistics: {
+      totalRevenue: Number(totalRevenue._sum.totalAmount ?? 0),
+      pendingOrders: statMap['pending'] ?? 0,
+      confirmedOrders: statMap['confirmed'] ?? 0,
+      processingOrders: statMap['processing'] ?? 0,
+      shippedOrders: statMap['shipped'] ?? 0,
+      deliveredOrders: statMap['delivered'] ?? 0,
+      cancelledOrders: statMap['cancelled'] ?? 0,
+      newOrdersToday,
+    },
+  };
+}
 
   // ─── UPDATE ORDER STATUS (Admin) ──────────────────────────────────────────────
   async updateOrderStatus(orderId: string, dto: UpdateOrderStatusDto) {
@@ -412,21 +443,98 @@ async getOrderStatus(orderId: string) {
   }
 
   // ─── ORDER DETAILS (Admin) ────────────────────────────────────────────────────
-  async getOrderDetails(orderId: string) {
+ async getOrderDetails(orderId: string) {
     const order = await this.prisma.order.findUnique({
-      where:   { id: orderId },
-      include: {
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        customerName: true,
+        customerEmail: true,
+        customerPhone: true,
+        orderStatus: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        subtotal: true,
+        deliveryCharges: true,
+        totalAmount: true,
+        orderNotes: true,
+        trackingNumber: true,
+        createdAt: true,
+        updatedAt: true,
+        deliveredAt: true,
+        // Shipping Columns
+        shippingAddress1: true,
+        shippingAddress2: true,
+        shippingCity: true,
+        shippingState: true,
+        shippingPostalCode: true,
+        shippingCountry: true,
+        // Items & Images (description aur internal metadata remove kar diya)
         items: {
-          include: {
-            product: { select: { name: true, images: { take: 1, select: { url: true } }, description: true } },
+          select: {
+            id: true,
+            productId: true,
+            productName: true,
+            price: true,
+            quantity: true,
+            subtotal: true,
+            product: {
+              select: {
+                images: {
+                  take: 1,
+                  select: { url: true },
+                },
+              },
+            },
           },
         },
-        buyerProfile: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
       },
-    })
+    });
 
-    if (!order) throw new NotFoundException('Order not found')
-    return { success: true, order }
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Response ko transform karke clean aur optimized format me return karna
+    return {
+      success: true,
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        subtotal: Number(order.subtotal),
+        deliveryCharges: Number(order.deliveryCharges),
+        totalAmount: Number(order.totalAmount),
+        orderNotes: order.orderNotes,
+        trackingNumber: order.trackingNumber,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        deliveredAt: order.deliveredAt,
+        shippingAddress: {
+          address1: order.shippingAddress1,
+          address2: order.shippingAddress2,
+          city: order.shippingCity,
+          state: order.shippingState,
+          postalCode: order.shippingPostalCode,
+          country: order.shippingCountry,
+        },
+        items: order.items.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.productName,
+          price: Number(item.price),
+          quantity: item.quantity,
+          subtotal: Number(item.subtotal),
+          image: item.product?.images[0]?.url || null,
+        })),
+      },
+    };
   }
 
   // ─── CANCEL PAYMENT (Admin) ───────────────────────────────────────────────────

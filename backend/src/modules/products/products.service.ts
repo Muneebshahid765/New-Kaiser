@@ -954,7 +954,7 @@ async hardDeleteProduct(id: string) {
 
 
 
-  private async clearProductCache(id?: string, slug?: string) {
+private async clearProductCache(id?: string, slug?: string) {
     if (id) await this.cacheService.del(`products:single:${id}`);
     if (slug) await this.cacheService.del(`products:single:${slug}`);
     await this.cacheService.delByPattern('products:list:*');

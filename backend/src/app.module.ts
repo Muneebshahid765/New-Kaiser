@@ -42,6 +42,7 @@ import { WebhookModule } from './modules/webhooks/webhook.module';
 import { SubscriptionModule } from './modules/subscriptions/subscription.module';
 import { StripeModule } from './core/stripe/stripe.module';
 import { OrderModule } from './modules/orders/orders.module';
+import { BuyerModule } from './modules/buyer/buyer.module';
 
 @Module({
   imports: [
@@ -77,7 +78,8 @@ import { OrderModule } from './modules/orders/orders.module';
     WebhookModule,
     SubscriptionModule,
     StripeModule,
-    OrderModule
+    OrderModule,
+    BuyerModule
   ],
   controllers: [AppController],
   providers: [

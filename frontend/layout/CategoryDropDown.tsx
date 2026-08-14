@@ -1,24 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Layers, X } from 'lucide-react';
-
-interface CategoryImage {
-  path?: string;
-  url?: string;
-}
-
-interface Category {
-  _id?: string;
-  name: string;
-  slug?: string;
-  status?: string;
-  image?: CategoryImage | string;
-  productCount?: number;
-  count?: number;
-}
+// 🔴 Shared type ko import karein (path apne project structure ke hisab se adjust kar lein)
+import { CategoryListItem } from '@/app/features/categories/types/category-reponse.types';
 
 interface CategoryMegaDropdownProps {
-  categories?: Category[];
+  categories?: CategoryListItem[]; // 👈 Using official CategoryListItem type
   isOpen: boolean;
   onClose: () => void;
   topOffset?: number;
@@ -31,17 +18,13 @@ const LOAD_MORE_COUNT = 9;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-const getCategoryImage = (cat: Category): string | null => {
-  if (!cat?.image) return null;
+// Updated helper for CategoryListItem's image structure ({ id, path })
+const getCategoryImage = (cat: CategoryListItem): string | null => {
+  if (!cat.image?.path) return null;
   
-  const imgPath = 
-    typeof cat.image === 'string' 
-      ? cat.image 
-      : cat.image?.path || cat.image?.url || null;
-  
-  if (!imgPath) return null;
+  const imgPath = cat.image.path;
   if (imgPath.startsWith('http')) return imgPath;
-  return `${API_URL}${imgPath}`;
+  return `${API_URL}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
 };
 
 const GRADIENTS = [
@@ -67,7 +50,7 @@ const CategoryMegaDropdown: React.FC<CategoryMegaDropdownProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) setVisibleCount(INITIAL_VISIBLE);
@@ -88,7 +71,7 @@ const CategoryMegaDropdown: React.FC<CategoryMegaDropdownProps> = ({
     };
   }, [isOpen]);
 
-  const handleCategoryClick = useCallback((category: Category) => {
+  const handleCategoryClick = useCallback((category: CategoryListItem) => {
     onClose();
     const slug = category.slug || encodeURIComponent(category.name);
     router.push(`/products?category=${slug}`);
@@ -99,8 +82,9 @@ const CategoryMegaDropdown: React.FC<CategoryMegaDropdownProps> = ({
     router.push('/products');
   }, [router, onClose]);
 
+  // Filter active categories
   const activeCategories = categories.filter(cat => 
-    cat.status === 'active' && cat.slug !== 'uncategorized'
+    String(cat.status).toLowerCase() === 'active' && cat.slug !== 'uncategorized'
   );
   
   const visibleCategories = activeCategories.slice(0, visibleCount);
@@ -162,10 +146,10 @@ const CategoryMegaDropdown: React.FC<CategoryMegaDropdownProps> = ({
         {/* Grid */}
         <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-6 gap-y-6">
           {visibleCategories.map((cat, index) => {
-            const id = cat._id || cat.name || String(index);
+            const id = cat.id || String(index); // 👈 Fixed: cat._id replaced with cat.id
             const name = cat.name || '';
             const imgSrc = getCategoryImage(cat);
-            const count = cat.productCount ?? cat.count ?? null;
+            const count = cat.productCount ?? null;
             const initial = name.charAt(0).toUpperCase();
             const gradient = GRADIENTS[index % GRADIENTS.length];
             const delay = `${(index % LOAD_MORE_COUNT) * 0.04}s`;
@@ -235,7 +219,6 @@ const CategoryMegaDropdown: React.FC<CategoryMegaDropdownProps> = ({
         )}
       </div>
 
-      {/* Tailwind animations - add to global CSS or use tailwind.config */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -263,17 +246,6 @@ const CategoryMegaDropdown: React.FC<CategoryMegaDropdownProps> = ({
         }
         .font-sans {
           font-family: 'DM Sans', sans-serif;
-        }
-        /* Scrollbar styling */
-        .cmdd-panel::-webkit-scrollbar {
-          width: 6px;
-        }
-        .cmdd-panel::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .cmdd-panel::-webkit-scrollbar-thumb {
-          background: #e5e0d8;
-          border-radius: 99px;
         }
       `}</style>
     </>

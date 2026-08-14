@@ -1,11 +1,7 @@
-import React from 'react'
+import { BuyerDashboardView } from "@/app/components/buyer/dashboard/buyer-dashboard";
 
-function page() {
-  return (
-    <div>
-      <h1>Dashoard</h1>
-    </div>
-  )
+
+
+export default function BuyerDashBoard() {
+  return <BuyerDashboardView />;
 }
-
-export default page

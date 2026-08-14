@@ -5,10 +5,10 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { FeaturedProductItem } from '@/app/features/products/types/product-response.types';
-import { AppImage } from '@/app/components/ui/AppImage'; // <-- AppImage ka sahi path import karein
+import { AppImage } from '@/app/components/ui/AppImage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface CartPayload {
+export interface CartPayload {
   id: string;
   _id: string;
   name: string;
@@ -16,6 +16,7 @@ interface CartPayload {
   slug: string;
   stockQuantity: number;
   image: string;
+  deliveryCharges?: number; // ✅ Fixed: added deliveryCharges
 }
 
 interface FeaturedProductsSectionProps {
@@ -24,7 +25,7 @@ interface FeaturedProductsSectionProps {
   products: FeaturedProductItem[];
   isLoading: boolean;
   error: string | null;
-  onAddToCart: (item: CartPayload) => void;
+  onAddToCart: (item: CartPayload | any) => void; // ✅ Fixed: Accept flexible CartPayload
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -128,6 +129,7 @@ export const FeaturedProductsSection: React.FC<FeaturedProductsSectionProps> = (
                   slug:          product.slug,
                   stockQuantity: product.stockQuantity,
                   image:         rawImageUrl ?? '',
+                   deliveryCharges: Number((product as any).deliveryCharges ?? 0),
                 };
 
                 return (
@@ -140,7 +142,7 @@ export const FeaturedProductsSection: React.FC<FeaturedProductsSectionProps> = (
                     }}
                     whileHover={{ y: -6, scale: 1.01 }}
                   >
-                    {/* ── AppImage Wrapper ────────────────────────────────────── */}
+                    {/* AppImage Wrapper */}
                     <div className="w-full md:w-72 flex-shrink-0 flex items-center">
                       <div className="w-full min-h-48 rounded-xl bg-white border border-amber-800/10 shadow-md flex items-center justify-center p-4 relative overflow-hidden">
                         <div className="relative w-full h-48 flex items-center justify-center">
@@ -186,7 +188,7 @@ export const FeaturedProductsSection: React.FC<FeaturedProductsSectionProps> = (
                       </div>
                     </div>
 
-                    {/* ── Content ───────────────────────────────────────────── */}
+                    {/* Content */}
                     <div className="flex-1 flex flex-col gap-3">
                       <div className="flex flex-wrap justify-between items-center text-sm">
                         <span className="bg-amber-100/60 text-amber-800 px-3 py-0.5 rounded-full font-semibold">

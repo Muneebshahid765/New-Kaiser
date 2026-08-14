@@ -1,5 +1,5 @@
 // app/buyer/dashboard/layout.tsx
-import DashboardLayout from '@/app/components/buyer-layout/sidebar';
+// import DashboardLayout from '@/app/components/buyer-layout/sidebar';
 
 export default function DashboardLayoutPage({
   children,
@@ -7,14 +7,15 @@ export default function DashboardLayoutPage({
   children: React.ReactNode;
 }) {
   return (
-    <DashboardLayout
-      userName="John Doe"
-      userEmail="john@example.com"
-      userInitials="JD"
-      unreadCount={5}
-      notificationLoading={false}
-    >
-      {children}
-    </DashboardLayout>
+    // <DashboardLayout
+    //   userName="John Doe"
+    //   userEmail="john@example.com"
+    //   userInitials="JD"
+    //   unreadCount={5}
+    //   notificationLoading={false}
+    // >
+      
+      <main>{children}</main>
+    // </DashboardLayout>
   );
 }

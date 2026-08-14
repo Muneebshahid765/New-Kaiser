@@ -13,7 +13,7 @@ declare module "axios" {
   }
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 const TIMEOUT = 15_000;
 const MAX_RETRIES = 1;
 

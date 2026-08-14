@@ -1,47 +1,47 @@
-import { get, post, put, del } from "@/services/https";
+import { get, post, put } from "@/services/https";
 import type {
-  CreateOrderPayload,
   UpdateOrderStatusPayload,
-  CancelOrderPayload,
   QueryOrderPayload,
-} from "../types/order.type";
+} from "../schemas/order.schema";
 import type {
-  OrderListItem,
-  OrderDetail,
+  GetAllOrdersResponse,
+  OrderDetailsResponse,
   OrderMessageResponse,
-  OrdersSummaryResponse,
+  OrdersStatisticsResponse,
 } from "../types/order-response.types";
 
-// ─── List Orders ─────────────────────────────────────────────────────────────
-export const getOrders = (query?: QueryOrderPayload) =>
-  get<OrderListItem[]>("/orders", { params: query });
+// ─── 1. Get All Orders (Admin) ────────────────────────────────────────────────
+export const getAllOrders = (query?: QueryOrderPayload) => {
+  // Convert frontend startDate/endDate to backend dateFrom/dateTo if needed
+  const params = {
+    ...query,
+    dateFrom: query?.startDate ?? query?.dateFrom,
+    dateTo: query?.endDate ?? query?.dateTo,
+  };
+  return get<GetAllOrdersResponse>("/orders/all-orders", { params });
+};
 
-// ─── Single Order Detail ─────────────────────────────────────────────────────
-export const getOrderById = (id: string) =>
-  get<OrderDetail>(`/orders/${id}`);
+// ─── 2. Single Order Details (Admin) ─────────────────────────────────────────
+export const getOrderDetails = (orderId: string) =>
+  get<OrderDetailsResponse>(`/orders/details/${orderId}`);
 
-// ─── Create Order ────────────────────────────────────────────────────────────
-export const createOrder = (payload: CreateOrderPayload) =>
-  post<OrderDetail>("/orders", payload);
-
-// ─── Update Order Status ─────────────────────────────────────────────────────
+// ─── 3. Update Order Status (Admin) ──────────────────────────────────────────
 export const updateOrderStatus = ({
-  id,
+  orderId,
   payload,
 }: {
-  id: string;
+  orderId: string;
   payload: UpdateOrderStatusPayload;
-}) => put<OrderMessageResponse>(`/orders/${id}/status`, payload);
+}) => put<OrderMessageResponse>(`/orders/update-status/${orderId}`, payload);
 
-// ─── Cancel Order ────────────────────────────────────────────────────────────
-export const cancelOrder = ({
-  id,
-  payload,
-}: {
-  id: string;
-  payload: CancelOrderPayload;
-}) => put<OrderMessageResponse>(`/orders/${id}/cancel`, payload);
+// ─── 4. Cancel Payment / Order (Admin) ────────────────────────────────────────
+export const cancelPayment = (orderId: string) =>
+  post<OrderMessageResponse>("/orders/cancel-payment", { orderId });
 
-// ─── Order Summary / Analytics ───────────────────────────────────────────────
-export const getOrdersSummary = () =>
-  get<OrdersSummaryResponse>("/orders/summary");
+// ─── 5. Order Status Check (Public) ──────────────────────────────────────────
+export const getOrderStatus = (orderId: string) =>
+  get<any>(`/orders/order-status/${orderId}`);
+
+// ─── 6. Statistics (Admin) ───────────────────────────────────────────────────
+export const getStatistics = () =>
+  get<OrdersStatisticsResponse>("/orders/statistics");

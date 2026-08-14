@@ -75,23 +75,27 @@ export default function ContactPage() {
     // Client-side Zod validation
     const validationResult = contactFormSchema.safeParse(formData);
 
-    if (!validationResult.success) {
-      const formattedErrors: Partial<Record<keyof ContactFormValues, string>> = {};
-      validationResult.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          formattedErrors[err.path[0] as keyof ContactFormValues] = err.message;
-        }
-      });
-      setFieldErrors(formattedErrors);
-
-      // Trigger Global Alert Modal
-      modals.alert({
-        title: "Validation Error",
-        description: "Please review the highlighted fields before submitting.",
-        variant: "warning",
-      });
-      return;
+  if (!validationResult.success) {
+  const fieldErrors = validationResult.error.flatten().fieldErrors;
+  
+  // Extract first error message per field
+  const formattedErrors: Partial<Record<keyof ContactFormValues, string>> = {};
+  for (const key in fieldErrors) {
+    const k = key as keyof ContactFormValues;
+    if (fieldErrors[k]?.[0]) {
+      formattedErrors[k] = fieldErrors[k]![0];
     }
+  }
+
+  setFieldErrors(formattedErrors);
+
+  modals.alert({
+    title: "Validation Error",
+    description: "Please review the highlighted fields before submitting.",
+    variant: "warning",
+  });
+  return;
+}
 
     setFieldErrors({});
 

@@ -1,115 +1,87 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMutationWithToast } from "@/hooks/use-mutation-toast";
 import {
-  getOrders,
-  getOrderById,
-  createOrder,
+  getAllOrders,
+  getOrderDetails,
   updateOrderStatus,
-  cancelOrder,
-  getOrdersSummary,
+  cancelPayment,
+  getStatistics,
 } from "../api/order.api";
+import type { QueryOrderPayload, UpdateOrderStatusPayload } from "../schemas/order.schema";
 import type {
-  QueryOrderPayload,
-  CreateOrderPayload,
-  UpdateOrderStatusPayload,
-  CancelOrderPayload,
-} from "../types/order.type";
-import type {
-  OrderListItem,
-  OrderDetail,
+  GetAllOrdersResponse,
+  OrderDetailsResponse,
   OrderMessageResponse,
-  OrdersSummaryResponse,
+  OrdersStatisticsResponse,
 } from "../types/order-response.types";
 
-// ─── Canonical Query Keys ─────────────────────────────────────────────────────
-const ORDER_LIST_ROOT = ["orders", "list"] as const;
-export const ORDER_LIST_KEY = (query?: QueryOrderPayload) =>
-  [...ORDER_LIST_ROOT, query ?? {}] as const;
+export const ORDER_LIST_ROOT = ["orders", "list"] as const;
+export const ORDER_LIST_KEY = (query?: QueryOrderPayload) => [...ORDER_LIST_ROOT, query ?? {}] as const;
 export const ORDER_DETAIL_KEY = (id: string) => ["orders", "detail", id] as const;
-export const ORDER_SUMMARY_KEY = ["orders", "summary"] as const;
+export const ORDER_STATS_KEY = ["orders", "statistics"] as const;
 
-// ─── List Orders Hook ─────────────────────────────────────────────────────────
+// ─── Fetch All Orders with Pagination & Stats ─────────────────────────────
 export function useOrders(query?: QueryOrderPayload) {
-  return useQuery<OrderListItem[], Error>({
+  return useQuery<GetAllOrdersResponse, Error>({
     queryKey: ORDER_LIST_KEY(query),
-    queryFn: () => getOrders(query),
-    select: (res: any) => {
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data)) return res.data;
-      if (Array.isArray(res?.orders)) return res.orders;
-      return [];
-    },
-    staleTime: 1_000 * 60 * 2,
-    retry: false,
+    queryFn: () => getAllOrders(query),
+    staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
   });
 }
 
-// ─── Single Order Hook ────────────────────────────────────────────────────────
-export function useOrder(id?: string) {
-  return useQuery<OrderDetail, Error>({
+// ─── Fetch Single Order Details ─────────────────────────────────────────────
+export function useOrderDetails(id?: string) {
+  return useQuery<OrderDetailsResponse, Error>({
     queryKey: ORDER_DETAIL_KEY(id ?? ""),
-    queryFn: () => getOrderById(id!),
+    queryFn: () => getOrderDetails(id!),
     enabled: Boolean(id),
-    staleTime: 1_000 * 60 * 5,
-    retry: false,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
-// ─── Create Order Mutation ────────────────────────────────────────────────────
-export function useCreateOrder() {
-  const queryClient = useQueryClient();
-
-  return useMutationWithToast<OrderDetail, CreateOrderPayload>(createOrder, {
-    successMsg: "Order placed successfully.",
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDER_LIST_ROOT });
-      queryClient.invalidateQueries({ queryKey: ORDER_SUMMARY_KEY });
-    },
-  });
-}
-
-// ─── Update Status Mutation ───────────────────────────────────────────────────
+// ─── Update Order Status Mutation ───────────────────────────────────────────
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
 
   return useMutationWithToast<
     OrderMessageResponse,
     { id: string; payload: UpdateOrderStatusPayload }
-  >(updateOrderStatus, {
-    successMsg: "Order status updated successfully.",
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ORDER_LIST_ROOT });
-      queryClient.invalidateQueries({ queryKey: ORDER_DETAIL_KEY(variables.id) });
-      queryClient.invalidateQueries({ queryKey: ORDER_SUMMARY_KEY });
-    },
-  });
+  >(
+    ({ id, payload }) => updateOrderStatus({ orderId: id, payload }),
+    {
+      successMsg: "Order status updated successfully.",
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: ORDER_LIST_ROOT });
+        queryClient.invalidateQueries({ queryKey: ORDER_DETAIL_KEY(variables.id) });
+        queryClient.invalidateQueries({ queryKey: ORDER_STATS_KEY });
+      },
+    }
+  );
 }
 
-// ─── Cancel Order Mutation ────────────────────────────────────────────────────
-export function useCancelOrder() {
+// ─── Cancel Payment Mutation ────────────────────────────────────────────────
+export function useCancelPayment() {
   const queryClient = useQueryClient();
 
-  return useMutationWithToast<
-    OrderMessageResponse,
-    { id: string; payload: CancelOrderPayload }
-  >(cancelOrder, {
-    successMsg: "Order cancelled successfully.",
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ORDER_LIST_ROOT });
-      queryClient.invalidateQueries({ queryKey: ORDER_DETAIL_KEY(variables.id) });
-      queryClient.invalidateQueries({ queryKey: ORDER_SUMMARY_KEY });
-    },
-  });
+  return useMutationWithToast<OrderMessageResponse, { id: string }>(
+    ({ id }) => cancelPayment(id),
+    {
+      successMsg: "Payment cancelled successfully.",
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: ORDER_LIST_ROOT });
+        queryClient.invalidateQueries({ queryKey: ORDER_DETAIL_KEY(variables.id) });
+        queryClient.invalidateQueries({ queryKey: ORDER_STATS_KEY });
+      },
+    }
+  );
 }
 
-// ─── Orders Summary Hook ──────────────────────────────────────────────────────
-export function useOrdersSummary() {
-  return useQuery<OrdersSummaryResponse, Error>({
-    queryKey: ORDER_SUMMARY_KEY,
-    queryFn: getOrdersSummary,
-    staleTime: 1_000 * 60 * 5,
-    retry: false,
-    refetchOnWindowFocus: false,
+// ─── Standalone Statistics Hook ─────────────────────────────────────────────
+export function useOrdersStatistics() {
+  return useQuery<OrdersStatisticsResponse, Error>({
+    queryKey: ORDER_STATS_KEY,
+    queryFn: getStatistics,
+    staleTime: 1000 * 60 * 5,
   });
 }

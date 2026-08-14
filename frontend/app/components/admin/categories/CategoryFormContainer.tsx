@@ -55,16 +55,16 @@ export function CategoryFormContainer({ categoryId }: CategoryFormContainerProps
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Form ──────────────────────────────────────────────────────────────────
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors },
-  } = useForm<CategoryFormData>({
-    resolver: zodResolver(CreateCategorySchema),
-    defaultValues: { name: "", description: "", status: "active" },
-  });
+ const {
+  register,
+  handleSubmit,
+  reset,
+  watch,
+  formState: { errors },
+} = useForm<CategoryFormData>({
+  resolver: zodResolver(CreateCategorySchema) as any,
+  defaultValues: { name: "", description: "", status: "active" },
+});
 
   // const descriptionValue = watch("description") || "";
   // const nameValue = watch("name") || "";
@@ -116,19 +116,21 @@ export function CategoryFormContainer({ categoryId }: CategoryFormContainerProps
   );
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  const onSubmit = handleSubmit(async (data) => {
-    if (isEditMode && categoryId) {
-      updateMutation.mutate(
-        { id: categoryId, dto: data, image: imageFile ?? undefined },
-        { onSuccess: () => router.push("/admin/categories") },
-      );
-    } else {
-      createMutation.mutate(
-        { dto: data, image: imageFile ?? undefined },
-        { onSuccess: () => router.push("/admin/categories") },
-      );
-    }
-  });
+ const handleFormSubmit = async (data: CategoryFormData) => {
+  if (isEditMode && categoryId) {
+    updateMutation.mutate(
+      { id: categoryId, dto: data, image: imageFile ?? undefined },
+      { onSuccess: () => router.push("/admin/categories") }
+    );
+  } else {
+    createMutation.mutate(
+      { dto: data, image: imageFile ?? undefined },
+      { onSuccess: () => router.push("/admin/categories") }
+    );
+  }
+};
+
+const onSubmit = handleSubmit(handleFormSubmit as any);
 
   if (isEditMode && isFetching) {
     // return <FormSkeleton />;

@@ -1,4 +1,3 @@
-// features/products/hooks/useProductForm.ts
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +8,7 @@ import { useUploadImage } from "@/app/features/uploads/uploads.hooks";
 
 const DRAFT_STORAGE_KEY = "product_form_draft_data";
 
+// ✅ FIX 1: statHighlights: [] add kar diya gaya hai
 const defaultFormValues: ProductFormData = {
   name: "",
   slug: "",
@@ -26,6 +26,7 @@ const defaultFormValues: ProductFormData = {
   adminNotes: "",
   features: [],
   highlights: [],
+  statHighlights: [], // 👈 Required field added
   sharedFeatures: [],
   specifications: [],
   labels: [],
@@ -36,11 +37,15 @@ const defaultFormValues: ProductFormData = {
   images: [],
 };
 
-export function useProductForm(initialProduct?: Product | null, isEditMode: boolean = false) {
+// ✅ FIX 2: Type flexibility (Product | any | null) support for PublicProductView
+export function useProductForm(
+  initialProduct?: Product | any | null,
+  isEditMode: boolean = false
+) {
   const { mutateAsync: uploadImage } = useUploadImage();
 
   const methods = useForm<ProductFormData>({
-    resolver: zodResolver(CreateProductSchema),
+    resolver: zodResolver(CreateProductSchema) as any, // 👈 Type cast resolver for compatibility
     defaultValues: defaultFormValues,
   });
 
@@ -49,7 +54,6 @@ export function useProductForm(initialProduct?: Product | null, isEditMode: bool
   // 1. Load Initial Data or Local Storage Draft
   useEffect(() => {
     if (isEditMode) {
-      // Edit mode: jab tak product load na ho tab tak wait karo
       if (!initialProduct || Object.keys(initialProduct).length === 0) return;
 
       // Robust Specification Mapping
@@ -92,10 +96,11 @@ export function useProductForm(initialProduct?: Product | null, isEditMode: bool
         specifications: specArray,
         features: initialProduct.features || [],
         highlights: initialProduct.highlights || [],
+        statHighlights: initialProduct.statHighlights || [], // 👈 Mapped statHighlights
         sharedFeatures: initialProduct.sharedFeatures || [],
         labels: initialProduct.labels || [],
-       ingredients: (initialProduct as any).packageContents || initialProduct.ingredients || [],
-nutritionFacts: (initialProduct as any).attributes || initialProduct.nutritionFacts || [],
+        ingredients: (initialProduct as any).packageContents || initialProduct.ingredients || [],
+        nutritionFacts: (initialProduct as any).attributes || initialProduct.nutritionFacts || [],
         benefits: initialProduct.benefits || [],
         faqs: initialProduct.faqs || [],
         images: initialProduct.images
@@ -153,7 +158,8 @@ nutritionFacts: (initialProduct as any).attributes || initialProduct.nutritionFa
     for (const file of files) {
       try {
         const localBlobUrl = URL.createObjectURL(file);
-        const response = await uploadImage({ file, folder: "products" });
+        const response: any = await uploadImage({ file, folder: "products" });
+        // ✅ FIX 3: Safe asset response parsing using type cast
         const asset = response?.data || response;
 
         const currentImages = getValues("images") || [];
@@ -164,7 +170,7 @@ nutritionFacts: (initialProduct as any).attributes || initialProduct.nutritionFa
           [
             ...currentImages,
             {
-              imageId: asset.id,
+              imageId: asset?.id || "",
               url: finalUrl,
               title: file.name.split(".")[0],
               description: "",

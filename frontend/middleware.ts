@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const ADMIN_PROTECTED_PREFIXES = ["/admin-dashboard", "/settings", "/automation"];
-const BUYER_PROTECTED_PREFIXES = ["/dashboard", "/orders", "/profile"];
+const ADMIN_PROTECTED_PREFIXES = ["/admin-dashboard", "/settings" ,"/orders"];
+const BUYER_PROTECTED_PREFIXES = ["/dashboard", "/profile"];
 const AUTH_ONLY_PREFIXES = ["/login", "/admin/login"];
 
 const ADMIN_AUTHENTICATED_REDIRECT = "/admin-dashboard";

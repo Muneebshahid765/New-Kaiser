@@ -46,25 +46,48 @@ export const CreateOrderSchema = z.object({
   orderNotes: z.string().optional(),
 });
 
-// ─── Update Status ──────────────────────────────────────────────────────────
+// ─── Update Order Status ────────────────────────────────────────────────────
 export const UpdateOrderStatusSchema = z.object({
   orderStatus: OrderStatusEnum,
   paymentStatus: PaymentStatusEnum.optional(),
   notes: z.string().optional(),
 });
 
-// ─── Cancel Order ───────────────────────────────────────────────────────────
+// ─── Cancel Order / Payment ─────────────────────────────────────────────────
 export const CancelOrderSchema = z.object({
   reason: z.string().min(3, "Cancellation reason batana zaroori hai"),
 });
 
-// ─── Query / Filters (List Endpoint) ───────────────────────────────────────
+export const CancelPaymentSchema = z.object({
+  orderId: z.string().min(1, "Order ID zaroori hai"),
+});
+
+// ─── Query / Filters (NestJS GetOrdersFilterDto Alignment) ─────────────────
 export const QueryOrderSchema = z.object({
-  status: z.union([OrderStatusEnum, z.literal("all")]).optional(),
+  orderStatus: z.union([OrderStatusEnum, z.literal("all")]).optional(),
   paymentStatus: z.union([PaymentStatusEnum, z.literal("all")]).optional(),
   search: z.string().optional(),
-  page: z.coerce.number().int().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(10).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  // Backward compatibility alias for UI pickers:
   startDate: z.string().optional(),
   endDate: z.string().optional(),
 });
+
+// ─── Export Inferred TypeScript Types ───────────────────────────────────────
+export type OrderStatus = z.infer<typeof OrderStatusEnum>;
+export type PaymentStatus = z.infer<typeof PaymentStatusEnum>;
+export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
+
+export type OrderItemInput = z.infer<typeof OrderItemInputSchema>;
+export type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
+
+export type CreateOrderPayload = z.infer<typeof CreateOrderSchema>;
+export type UpdateOrderStatusPayload = z.infer<typeof UpdateOrderStatusSchema>;
+export type CancelOrderPayload = z.infer<typeof CancelOrderSchema>;
+export type CancelPaymentPayload = z.infer<typeof CancelPaymentSchema>;
+export type QueryOrderPayload = z.infer<typeof QueryOrderSchema>;

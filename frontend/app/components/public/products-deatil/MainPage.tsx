@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation";
 
 // ── Hooks & Stores ─────────────────────────────────────────────────────────────
-import { usePublicProductDetail } from "@/app/features/products/hooks/product.hooks";
+import { usePublicProductDetail } from "@/app/features/products/hooks/public-product.hooks";
 import { useCart } from "../../home/hooks/useCart";
 import { modals } from "@/hooks/store/useModalStore";
 

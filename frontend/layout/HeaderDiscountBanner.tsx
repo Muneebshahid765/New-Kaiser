@@ -15,9 +15,9 @@ interface DiscountTimer {
 interface HeaderDiscountBannerProps {
   publicDiscount?: {
     enabled?: boolean;
-    endDate?: string | Date;
+    endDate?: string | Date | null; // ✅ Fixed to accept null
     bannerText?: string;
-  };
+  } | null; // Optional: agar khud `publicDiscount` object hi null ho sake
 }
 
 export const HeaderDiscountBanner: React.FC<HeaderDiscountBannerProps> = ({
@@ -39,7 +39,8 @@ export const HeaderDiscountBanner: React.FC<HeaderDiscountBannerProps> = ({
     }
 
     const buildTimerPayload = (): DiscountTimer => {
-      const targetDate = new Date(publicDiscount.endDate as string);
+      // Type assertion or safe check since endDate could be string or Date
+      const targetDate = new Date(publicDiscount.endDate as string | Date);
       if (isNaN(targetDate.getTime())) return { parts: [], status: 'Ending soon' };
 
       const diff = targetDate.getTime() - Date.now();

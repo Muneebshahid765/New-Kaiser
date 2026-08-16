@@ -9,7 +9,7 @@ import { BuyerDashboardService } from './buyer-dashboard.service';
 import {
   DashboardQuerySchema,
   type DashboardQueryDto,
-} from './dto/buyer-dashboard.dto';
+} from '../dto/buyer-dashboard.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/validation.pipe';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard'; // <-- اپنا درست Guard Path لگائیں

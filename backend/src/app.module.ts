@@ -33,8 +33,6 @@ import mailConfig from './core/config/mail.config';
 import { JwtStrategy } from './common/strategies/jwt.strategy';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { DeviceFingerprintService } from './common/utils/device-fingerprint.service';
-import { ProfileModule } from './modules/users/users.module';
-import { AdminSettingsModule } from './modules/admin-settings/admin-settings.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { FaqModule } from './modules/Public/public.module';
@@ -43,6 +41,7 @@ import { SubscriptionModule } from './modules/subscriptions/subscription.module'
 import { StripeModule } from './core/stripe/stripe.module';
 import { OrderModule } from './modules/orders/orders.module';
 import { BuyerModule } from './modules/buyer/buyer.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -70,8 +69,6 @@ import { BuyerModule } from './modules/buyer/buyer.module';
     
     // 5. Feature Modules
     BuyerAuthModule,
-    ProfileModule,
-    AdminSettingsModule,
     CategoriesModule,
     ProductsModule,
     FaqModule,
@@ -79,7 +76,8 @@ import { BuyerModule } from './modules/buyer/buyer.module';
     SubscriptionModule,
     StripeModule,
     OrderModule,
-    BuyerModule
+    BuyerModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [

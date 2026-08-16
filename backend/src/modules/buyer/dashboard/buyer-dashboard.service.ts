@@ -15,30 +15,29 @@ export class BuyerDashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboardOverview(userId: string, recentLimit = 4) {
-
     if (!userId) {
-    throw new BadRequestException('User ID is missing or invalid');
-  }
+      throw new BadRequestException('User ID is missing or invalid');
+    }
 
     try {
       // 1. Fetch Buyer Profile with relations
       const buyerProfile = await this.prisma.buyerProfile.findUnique({
-      where: { userId },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        isVerified: true,
-        createdAt: true,
-        user: { select: { email: true } },
-        _count: { select: { addresses: true } },
-        subscriptions: {
-          where: { status: 'active' },
-          take: 1,
-          select: { plan: { select: { name: true } } },
+        where: { userId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          isVerified: true,
+          createdAt: true,
+          user: { select: { email: true } },
+          _count: { select: { addresses: true } },
+          subscriptions: {
+            where: { status: 'active' },
+            take: 1,
+            select: { plan: { select: { name: true } } },
+          },
         },
-      },
-    });
+      });
 
       if (!buyerProfile) {
         throw new NotFoundException('Buyer profile not found');
@@ -54,6 +53,8 @@ export class BuyerDashboardService {
         totalOrdersThisMonth,
         pendingOrdersCount,
         pendingOrdersThisMonth,
+        confirmedOrdersCount,
+        confirmedOrdersThisMonth,
         deliveredOrdersCount,
         deliveredOrdersThisMonth,
         recentOrders,
@@ -91,7 +92,24 @@ export class BuyerDashboardService {
           },
         }),
 
-        // Metric 3: Delivered Orders Count
+        // Metric 3: Confirmed Orders Count
+        this.prisma.order.count({
+          where: {
+            buyerProfileId: buyerProfile.id,
+            orderStatus: OrderStatus.confirmed,
+          },
+        }),
+
+        // Metric 3 Comparison: Confirmed Created This Month
+        this.prisma.order.count({
+          where: {
+            buyerProfileId: buyerProfile.id,
+            orderStatus: OrderStatus.confirmed,
+            createdAt: { gte: firstDayOfMonth },
+          },
+        }),
+
+        // Metric 4: Delivered Orders Count
         this.prisma.order.count({
           where: {
             buyerProfileId: buyerProfile.id,
@@ -99,7 +117,7 @@ export class BuyerDashboardService {
           },
         }),
 
-        // Metric 3 Comparison: Delivered This Month
+        // Metric 4 Comparison: Delivered This Month
         this.prisma.order.count({
           where: {
             buyerProfileId: buyerProfile.id,
@@ -206,7 +224,7 @@ export class BuyerDashboardService {
               buyerProfile.subscriptions[0]?.plan.name || 'Standard Buyer',
           },
 
-          // 4 Top Cards Metadata
+          // Top Cards Metrics Metadata
           metrics: {
             totalOrders: {
               value: totalOrdersCount,
@@ -215,6 +233,10 @@ export class BuyerDashboardService {
             pendingOrders: {
               value: pendingOrdersCount,
               changeThisMonth: `+${pendingOrdersThisMonth} new`,
+            },
+            confirmOrders: {
+              value: confirmedOrdersCount,
+              changeThisMonth: `+${confirmedOrdersThisMonth} this month`,
             },
             deliveredOrders: {
               value: deliveredOrdersCount,
@@ -249,8 +271,10 @@ export class BuyerDashboardService {
             breakdown: {
               delivered: statusCounts.delivered,
               shipped: statusCounts.shipped,
-              processing: statusCounts.processing + statusCounts.pending,
+              processing: statusCounts.processing,
               cancelled: statusCounts.cancelled,
+              confirmed: statusCounts.confirmed,
+              pending: statusCounts.pending,
             },
           },
 

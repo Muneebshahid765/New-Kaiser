@@ -96,3 +96,18 @@ export interface PublicDiscountResponse {
   startDate: string | null;
   endDate: string | null;
 }
+
+export interface SystemActionLog {
+  id: string;
+  action: string;
+  timestamp: string | Date | null;
+}
+
+export interface SystemActivityAndHealthResponse {
+  recentActions: SystemActionLog[];
+  systemStatus: {
+    database: string;
+    paymentGateway: string;
+    emailService: string;
+  };
+}

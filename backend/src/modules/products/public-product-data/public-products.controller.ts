@@ -14,10 +14,8 @@ import { PublicProductsService } from './public-products.service';
 import { Public } from 'src/common/decorators/public.decorator';
 import { ZodValidationPipe } from 'src/common/pipes/validation.pipe';
 import { type GetProductsFilter } from '../dto/filter.dto';
-import {
-  type GetProductReviewsDto,
-  getProductReviewsSchema,
-} from '../dto/reviews.dto';
+import { type GetProductReviewsDto, getProductReviewsSchema } from 'src/modules/buyer/dto/buyer-review.dto';
+
 
 @Controller('public-products')
 export class PublicProductsController {
@@ -53,17 +51,6 @@ export class PublicProductsController {
     return this.productsService.getSimilarProducts(id, categoryId);
   }
 
-  // 4. PRODUCT REVIEWS -> GET /api/v1/public-products/product/:productId/reviews
-  @Public()
-  @Get('product/:productId')
-  @HttpCode(HttpStatus.OK)
-  async getProductReviews(
-    @Param('productId', ParseUUIDPipe) productId: string,
-    @Query(ZodValidationPipe.for(getProductReviewsSchema))
-    dto: GetProductReviewsDto,
-  ) {
-    return this.productsService.getProductReviews(productId, dto);
-  }
 
   // 5. SINGLE PRODUCT DETAILS (Must be at bottom) -> GET /api/v1/public-products/detail/:param
   @Public()

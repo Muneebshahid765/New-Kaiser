@@ -9,14 +9,15 @@ import { isUUID, calculateGlobalDiscount, fetchActiveSiteWideDiscount } from '..
 import { CacheService } from 'src/core/cache/redis/cache.service';
 import { calculateProductScore } from 'src/common/utils/product-score.util';
 import { GetProductsFilter } from '../dto/filter.dto';
-import { ReviewStatus } from 'generated/prisma/enums';
-import { GetProductReviewsDto } from '../dto/reviews.dto';
+import { BuyerReviewService } from 'src/modules/buyer/reviews/buyer-reviews.service';
+import { GetProductReviewsDto } from 'src/modules/buyer/dto/buyer-review.dto';
 
 @Injectable()
 export class PublicProductsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly  cacheService : CacheService
+    private readonly  cacheService : CacheService,
+    private readonly reviewService : BuyerReviewService
   ) {}
 
 
@@ -217,57 +218,7 @@ async getSimilarProducts(productId: string, categoryId: string) {
     return response;
   }
 
- async getProductReviews(
-    productId: string,
-    dto: GetProductReviewsDto,
-    skipExistenceCheck = false,
-  ) {
-    const { cursor, limit = 5 } = dto;
 
-    if (!skipExistenceCheck) {
-      const productExists = await this.prisma.product.findUnique({
-        where: { id: productId },
-        select: { id: true },
-      });
-
-      if (!productExists) {
-        throw new NotFoundException('Product not found');
-      }
-    }
-
-    const takeLimit = limit + 1;
-    const reviews = await this.prisma.review.findMany({
-      where: {
-        productId,
-        status: ReviewStatus.approved,
-      },
-      take: takeLimit,
-      ...(cursor && { skip: 1, cursor: { id: cursor } }),
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        userName: true,
-        rating: true,
-        comment: true,
-        createdAt: true,
-        buyerProfile: { select: { id: true } },
-      },
-    });
-
-    let nextCursor: string | null = null;
-    let hasMore = false;
-
-    if (reviews.length > limit) {
-      hasMore = true;
-      const nextItem = reviews.pop();
-      nextCursor = nextItem?.id ?? null;
-    }
-
-    return {
-      data: reviews,
-      meta: { nextCursor, hasMore, limit },
-    };
-  }
 
 async getPublicProductDetails(param: string, reviewDto: GetProductReviewsDto) {
     const productCacheKey = `products:public:${param}`;
@@ -346,7 +297,7 @@ async getPublicProductDetails(param: string, reviewDto: GetProductReviewsDto) {
 
     // Parallel DB Calls (Skip redundant product existence check for reviews)
     const [reviewsData, similarData] = await Promise.all([
-      this.getProductReviews(productId, reviewDto, true),
+      this.reviewService.getProductReviews(productId, reviewDto, true),
       this.getSimilarProducts(productId, categoryId),
     ]);
 

@@ -28,6 +28,7 @@ import type {
   PreferencesResponse,
   NotificationsResponse,
   PublicDiscountResponse,
+  SystemActivityAndHealthResponse,
 } from "../types/admin-settings-response.types";
 
 export const getAdminSettings = () => get<AdminSettingsResponse>("/settings");
@@ -58,6 +59,10 @@ export const updateAdminPreferences = (payload: UpdatePreferencesPayload) =>
 
 export const updateAdminNotifications = (payload: UpdateNotificationsPayload) =>
   put<NotificationsResponse>("/settings/notifications", payload);
+
+export const getSystemActivityAndHealth = () =>
+  get<SystemActivityAndHealthResponse>("/settings/activity-and-health");
+
 
 // Public — no auth guard on the backend for this one
 export const getPublicDiscount = () => get<PublicDiscountResponse>("/settings/public-discount");

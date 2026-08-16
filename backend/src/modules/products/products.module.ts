@@ -7,17 +7,20 @@ import { ImageDedupService } from '../uploads/services/image.service';
 import { UploadsModule } from '../uploads/uploads.module';
 import { PublicProductsController } from './public-product-data/public-products.controller';
 import { PublicProductsService } from './public-product-data/public-products.service';
+import { BuyerModule } from '../buyer/buyer.module';
+
 
 @Module({
   imports: [
    CacheModule,
-   UploadsModule
+   UploadsModule,
+   BuyerModule
   ],
   controllers: [ProductsController,PublicProductsController],
   providers: [
     ProductsService,
-    PublicProductsService,
-    ImageDedupService
+    ImageDedupService,
+    PublicProductsService
   ],
   exports: [ProductsService,PublicProductsService],
 })

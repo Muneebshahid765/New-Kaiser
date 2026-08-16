@@ -306,7 +306,6 @@ async getOrderStatus(orderId: string) {
   }
 }
 
-  // ─── ALL ORDERS (Admin) ───────────────────────────────────────────────────────
 
   // ─── ALL ORDERS (Admin - High Performance Optimized) ──────────────────────────
 async getAllOrders(dto: GetOrdersFilterDto) {

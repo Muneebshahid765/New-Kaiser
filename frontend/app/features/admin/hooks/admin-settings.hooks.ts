@@ -4,7 +4,7 @@
 // after the identity check succeeds — same pattern as profile-management.hooks.ts.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMutationWithToast } from "@/hooks/use-mutation-toast";
-import { useGetAuth } from "@/context/auth-context";
+// import { useGetAuth } from "@/context/auth-context";
 import {
   getAdminSettings,
   updateAdminProfile,
@@ -16,6 +16,7 @@ import {
   updateAdminPreferences,
   updateAdminNotifications,
   getPublicDiscount,
+  getSystemActivityAndHealth,
 } from "../api/admin-settings.api";
 import type {
   UpdateAdminProfilePayload,
@@ -35,20 +36,36 @@ import type {
   PreferencesResponse,
   NotificationsResponse,
   PublicDiscountResponse,
+  SystemActivityAndHealthResponse,
 } from "../types/admin-settings-response.types";
 
 // ─── Canonical Query Keys ─────────────────────────────────────────────────────
 export const ADMIN_SETTINGS_KEY = ["admin-settings"] as const;
 export const PUBLIC_DISCOUNT_KEY = ["public-discount"] as const;
 
+export const SYSTEM_HEALTH_KEY = ["system-activity-health"] as const;
+
+export function useSystemActivityAndHealth() {
+  // const { data: user, isLoading: isAuthLoading } = useGetAuth();
+
+  return useQuery<SystemActivityAndHealthResponse, Error>({
+    queryKey: SYSTEM_HEALTH_KEY,
+    queryFn: getSystemActivityAndHealth,
+    enabled: true,
+    staleTime: 1_000 * 30, // Refetch every 30 seconds
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
 // ─── Get All Settings ─────────────────────────────────────────────────────────
 export function useAdminSettings() {
-  const { data: user, isLoading: isAuthLoading } = useGetAuth();
+  // const { data: user, isLoading: isAuthLoading } = useGetAuth();
 
   return useQuery<AdminSettingsResponse, Error>({
     queryKey: ADMIN_SETTINGS_KEY,
     queryFn: getAdminSettings,
-    enabled: !!user && !isAuthLoading,
+    enabled: true,
     staleTime: 1_000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { z } from 'zod';
 
 export const UpdateNotificationsSchema = z.object({
@@ -8,6 +9,4 @@ export const UpdateNotificationsSchema = z.object({
   systemAlerts: z.boolean().optional(),
 });
 
-export type UpdateNotificationsDto = z.infer<
-  typeof UpdateNotificationsSchema
->;
+export type UpdateNotificationsDto = z.infer<typeof UpdateNotificationsSchema>;

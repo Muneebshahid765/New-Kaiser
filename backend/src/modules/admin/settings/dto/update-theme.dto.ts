@@ -1,12 +1,9 @@
-/*eslint-disable*/
-import {z} from 'zod'
-import { ThemeMode } from '@prisma/client';
+/* eslint-disable */
+import { z } from 'zod';
 
 export const UpdateThemeSchema = z.object({
-  mode: z.nativeEnum(ThemeMode).optional(),
+  mode: z.enum(['light', 'dark', 'auto']).optional(),
   sidebarCollapsed: z.boolean().optional(),
 });
 
-export type UpdateThemeDto = z.infer<
-  typeof UpdateThemeSchema
->;
+export type UpdateThemeDto = z.infer<typeof UpdateThemeSchema>;

@@ -86,7 +86,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
               deliveryCharges === 0 ? "text-[#2E7D32]" : "text-[#3E2723]"
             }`}
           >
-            {deliveryCharges === 0 ? "FREE" : `$${deliveryCharges.toFixed(2)}`}
+            {deliveryCharges === 0 ? "FREE" : `$${Number(deliveryCharges).toFixed(2)}`}
           </span>
         </div>
       </div>
@@ -98,7 +98,7 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
             Total Amount
           </span>
           <span className="text-[28px] font-extrabold text-[#8B5A3C] font-inter tracking-[-0.5px]">
-            ${total.toFixed(2)}
+            ${Number(total).toFixed(2)}
           </span>
         </div>
       </div>

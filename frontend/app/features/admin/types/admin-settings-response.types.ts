@@ -1,5 +1,5 @@
 // features/admin-settings/types/admin-settings-response.types.ts
-import type { ThemeMode, CurrencyCode, LanguageCode, DateFormatType } from "./admin-settings.types";
+import type { ThemeMode, CurrencyCode, LanguageCode, DateFormatType } from "../schemas/admin-settings.schemas";
 
 // Endpoints below with no `data` field in the backend response keep their
 // full { success, message } envelope, since api-client.ts's interceptor only

@@ -98,29 +98,28 @@ async login(dto: LoginDtoType, req: Request) : Promise<AdminLoginResponse> {
   // =========================================================================
   // 🌟 NEW 2FA CHECK LOGIC (Added right before token generation)
   // =========================================================================
-  if (user.adminProfile.twoFactorEnabled) {
-    const tempSessionId = crypto.randomUUID();
-    const tempExpiry = new Date(now.getTime() + 5 * 60 * 1000); // 5 Mins
+  // admin-auth.service.ts
 
-    // Save temporary 2FA Session state in Database
-    await this.prisma.adminProfile.update({
-      where: { id: user.adminProfile.id },
-      data: {
-        pendingTwoFactorSession: tempSessionId,
-        pendingTwoFactorExpiry: tempExpiry,
-      },
-    });
+if (user.adminProfile.twoFactorEnabled) {
+  const tempSessionId = crypto.randomUUID();
+  const tempExpiry = new Date(now.getTime() + 5 * 60 * 1000);
 
-    // Return temp token response instead of full JWT Token
-    return {
-      requiresTwoFactor: true,
-      message: '2FA verification required',
-      data: {
-        email: user.email,
-        tempSessionId,
-      },
-    };
-  }
+  await this.prisma.adminProfile.update({
+    where: { id: user.adminProfile.id },
+    data: {
+      pendingTwoFactorSession: tempSessionId,
+      pendingTwoFactorExpiry: tempExpiry,
+    },
+  });
+
+  // Direct return karain (ResponseInterceptor outer wrapper handle kar lega)
+  return {
+    requiresTwoFactor: true,
+    message: '2FA verification required',
+    email: user.email,
+    tempSessionId,
+  } as any;
+}
 
   // =========================================================================
   // If 2FA is NOT enabled, issue JWT Token directly

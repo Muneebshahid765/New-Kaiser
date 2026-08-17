@@ -1,10 +1,6 @@
 // features/admin-settings/hooks/admin-settings.hooks.ts
-//
-// All admin-only queries are gated behind useGetAuth() so they only fire
-// after the identity check succeeds — same pattern as profile-management.hooks.ts.
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMutationWithToast } from "@/hooks/use-mutation-toast";
-// import { useGetAuth } from "@/context/auth-context";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutationWithToast } from '@/hooks/use-mutation-toast';
 import {
   getAdminSettings,
   updateAdminProfile,
@@ -17,7 +13,7 @@ import {
   updateAdminNotifications,
   getPublicDiscount,
   getSystemActivityAndHealth,
-} from "../api/admin-settings.api";
+} from '../api/admin-settings.api';
 import type {
   UpdateAdminProfilePayload,
   ChangeAdminPasswordPayload,
@@ -26,7 +22,7 @@ import type {
   UpdateSiteWideDiscountPayload,
   UpdatePreferencesPayload,
   UpdateNotificationsPayload,
-} from "../types/admin-settings.types";
+} from '../schemas/admin-settings.schemas';
 import type {
   AdminSettingsResponse,
   MessageResponse,
@@ -37,108 +33,98 @@ import type {
   NotificationsResponse,
   PublicDiscountResponse,
   SystemActivityAndHealthResponse,
-} from "../types/admin-settings-response.types";
+} from '../types/admin-settings-response.types';
 
-// ─── Canonical Query Keys ─────────────────────────────────────────────────────
-export const ADMIN_SETTINGS_KEY = ["admin-settings"] as const;
-export const PUBLIC_DISCOUNT_KEY = ["public-discount"] as const;
+export const ADMIN_SETTINGS_KEY = ['admin-settings'] as const;
+export const PUBLIC_DISCOUNT_KEY = ['public-discount'] as const;
+export const SYSTEM_HEALTH_KEY = ['system-activity-health'] as const;
 
-export const SYSTEM_HEALTH_KEY = ["system-activity-health"] as const;
-
-export function useSystemActivityAndHealth() {
-  // const { data: user, isLoading: isAuthLoading } = useGetAuth();
-
-  return useQuery<SystemActivityAndHealthResponse, Error>({
-    queryKey: SYSTEM_HEALTH_KEY,
-    queryFn: getSystemActivityAndHealth,
-    enabled: true,
-    staleTime: 1_000 * 30, // Refetch every 30 seconds
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-}
-
-// ─── Get All Settings ─────────────────────────────────────────────────────────
+// ─── GET /settings ────────────────────────────────────────────────────────
 export function useAdminSettings() {
-  // const { data: user, isLoading: isAuthLoading } = useGetAuth();
-
   return useQuery<AdminSettingsResponse, Error>({
     queryKey: ADMIN_SETTINGS_KEY,
     queryFn: getAdminSettings,
-    enabled: true,
     staleTime: 1_000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
   });
 }
 
-// ─── Update Profile (Name / Email) ──────────────────────────────────────────
-export function useUpdateAdminProfile() {
-  const queryClient = useQueryClient();
-
-  return useMutationWithToast<MessageResponse, UpdateAdminProfilePayload>(updateAdminProfile, {
-    successMsg: "Profile updated successfully.",
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
-    },
+// ─── GET /settings/activity-and-health ────────────────────────────────────
+export function useSystemActivityAndHealth() {
+  return useQuery<SystemActivityAndHealthResponse, Error>({
+    queryKey: SYSTEM_HEALTH_KEY,
+    queryFn: getSystemActivityAndHealth,
+    staleTime: 1_000 * 30,
+    refetchInterval: 1_000 * 30, // auto-refresh every 30s
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }
 
-// ─── Change Password ──────────────────────────────────────────────────────────
+// ─── PUT /settings/profile ────────────────────────────────────────────────
+export function useUpdateAdminProfile() {
+  const queryClient = useQueryClient();
+  return useMutationWithToast<MessageResponse, UpdateAdminProfilePayload>(
+    updateAdminProfile,
+    {
+      successMsg: 'Profile updated successfully.',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY }),
+    },
+  );
+}
+
+// ─── PUT /settings/change-password ────────────────────────────────────────
 export function useChangeAdminPassword() {
   return useMutationWithToast<MessageResponse, ChangeAdminPasswordPayload>(
     changeAdminPassword,
-    { successMsg: "Password changed successfully." },
+    { successMsg: 'Password changed successfully.' },
   );
 }
 
-// ─── Upload Profile Picture ───────────────────────────────────────────────────
+// ─── POST /settings/profile-picture ──────────────────────────────────────
 export function useUploadAdminProfilePicture() {
   const queryClient = useQueryClient();
-
-  return useMutationWithToast<ProfilePictureResponse, File>(uploadAdminProfilePicture, {
-    successMsg: "Profile picture uploaded successfully.",
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
+  return useMutationWithToast<ProfilePictureResponse, File>(
+    uploadAdminProfilePicture,
+    {
+      successMsg: 'Profile picture updated.',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY }),
     },
-  });
+  );
 }
 
-// ─── Update Theme ─────────────────────────────────────────────────────────────
+// ─── PUT /settings/theme ─────────────────────────────────────────────────
 export function useUpdateAdminTheme() {
   const queryClient = useQueryClient();
-
-  return useMutationWithToast<ThemeResponse, UpdateThemePayload>(updateAdminTheme, {
-    successMsg: "Theme settings updated successfully.",
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
+  return useMutationWithToast<ThemeResponse, UpdateThemePayload>(
+    updateAdminTheme,
+    {
+      successMsg: 'Theme updated.',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY }),
     },
-  });
+  );
 }
 
-// ─── Update Security ──────────────────────────────────────────────────────────
+// ─── PUT /settings/security ──────────────────────────────────────────────
 export function useUpdateAdminSecurity() {
   const queryClient = useQueryClient();
-
   return useMutationWithToast<MessageResponse, UpdateSecuritySettingsPayload>(
     updateAdminSecurity,
     {
-      successMsg: "Security settings updated successfully.",
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
-      },
+      successMsg: 'Security settings updated.',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY }),
     },
   );
 }
 
-// ─── Update Site-Wide Discount ────────────────────────────────────────────────
+// ─── PUT /settings/site-wide-discount ────────────────────────────────────
 export function useUpdateSiteWideDiscount() {
   const queryClient = useQueryClient();
-
   return useMutationWithToast<SiteWideDiscountResponse, UpdateSiteWideDiscountPayload>(
     updateSiteWideDiscount,
     {
-      successMsg: "Site-wide discount updated successfully.",
+      successMsg: 'Discount settings updated.',
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
         queryClient.invalidateQueries({ queryKey: PUBLIC_DISCOUNT_KEY });
@@ -147,37 +133,31 @@ export function useUpdateSiteWideDiscount() {
   );
 }
 
-// ─── Update Preferences ───────────────────────────────────────────────────────
+// ─── PUT /settings/preferences ───────────────────────────────────────────
 export function useUpdateAdminPreferences() {
   const queryClient = useQueryClient();
-
   return useMutationWithToast<PreferencesResponse, UpdatePreferencesPayload>(
     updateAdminPreferences,
     {
-      successMsg: "Preferences updated successfully.",
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
-      },
+      successMsg: 'Preferences saved.',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY }),
     },
   );
 }
 
-// ─── Update Notifications ─────────────────────────────────────────────────────
+// ─── PUT /settings/notifications ─────────────────────────────────────────
 export function useUpdateAdminNotifications() {
   const queryClient = useQueryClient();
-
   return useMutationWithToast<NotificationsResponse, UpdateNotificationsPayload>(
     updateAdminNotifications,
     {
-      successMsg: "Notification preferences updated successfully.",
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
-      },
+      successMsg: 'Notification preferences saved.',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY }),
     },
   );
 }
 
-// ─── Public Discount Banner (no auth required) ────────────────────────────────
+// ─── GET /settings/public-discount (no auth) ─────────────────────────────
 export function usePublicDiscount() {
   return useQuery<PublicDiscountResponse, Error>({
     queryKey: PUBLIC_DISCOUNT_KEY,

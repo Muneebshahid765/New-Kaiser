@@ -1,3 +1,4 @@
+// AdminSettingsLayout.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -7,9 +8,7 @@ import PreferencesTab from './tabs/PreferencesTab';
 import NotificationsTab from './tabs/NotificationsTab';
 import SecurityTab from './tabs/SecurityTab';
 import DiscountTab from './tabs/DiscountTab';
-import RecentActionsCard from './sidebar/RecentActionsCard';
-import ActiveDiscountCard from './sidebar/ActiveDiscountCard';
-import SystemStatusCard from './sidebar/SystemStatusCard';
+import SystemActivitySidebar from './sidebar/SystemStatusCard';
 
 type TabType = 'profile' | 'preferences' | 'notifications' | 'security' | 'discount';
 
@@ -68,11 +67,8 @@ export default function AdminSettingsLayout() {
         </div>
 
         {/* Right Sidebar Status Cards */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">SYSTEM ALERTS & ACTIONS</div>
-          <RecentActionsCard />
-          <ActiveDiscountCard discount={settings.siteWideDiscount} />
-          <SystemStatusCard />
+        <div className="lg:col-span-4">
+          <SystemActivitySidebar />
         </div>
       </div>
     </div>

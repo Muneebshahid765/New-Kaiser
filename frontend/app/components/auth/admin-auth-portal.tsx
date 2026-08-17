@@ -26,37 +26,44 @@ export default function AdminLoginPage() {
     defaultValues: { email: "", password: "" },
   });
 
-  const onAdminLoginSubmit = (data: LoginFormData) => {
-    setActiveError(null);
+ // AdminLoginPage.tsx
 
-    adminLoginMutation.mutate(
-      { email: data.email, password: data.password },
-      {
-        onSuccess: (res: any) => {
-          const email = res?.data?.email || res?.email || data.email;
-          const sessionId = res?.data?.tempSessionId || res?.tempSessionId;
+const onAdminLoginSubmit = (data: LoginFormData) => {
+  setActiveError(null);
 
-          // If 2FA is required, navigate directly to page-based /verify-2fa
-          if (res?.requiresTwoFactor || res?.data?.requiresTwoFactor || sessionId) {
-            router.push(
-              `/verify-2fa?email=${encodeURIComponent(email)}&sessionId=${encodeURIComponent(sessionId)}`
-            );
-            return;
-          }
+  adminLoginMutation.mutate(
+    { email: data.email, password: data.password },
+    {
+      onSuccess: (res: any) => {
+        // Safe extraction for both single & double wrapped responses
+        const payload = res?.data?.data ? res.data : res;
+        const innerData = payload?.data;
 
-          // Direct login fallback if 2FA is not enabled for admin
-          router.push("/dashboard");
-        },
-        onError: (err: any) => {
-          const msg =
-            err?.response?.data?.message ||
-            err?.message ||
-            "Invalid Admin credentials. Access denied.";
-          setActiveError(msg);
-        },
-      }
-    );
-  };
+        const is2FA = payload?.requiresTwoFactor || res?.requiresTwoFactor;
+        const email = innerData?.email || payload?.email || data.email;
+        const sessionId = innerData?.tempSessionId || payload?.tempSessionId;
+
+        // If 2FA is required
+        if (is2FA || sessionId) {
+          router.push(
+            `/admin/verify-2fa?email=${encodeURIComponent(email)}&sessionId=${encodeURIComponent(sessionId)}`
+          );
+          return;
+        }
+
+        // Direct login fallback
+        router.push("/dashboard");
+      },
+      onError: (err: any) => {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Invalid Admin credentials. Access denied.";
+        setActiveError(msg);
+      },
+    }
+  );
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[#f7f4f0] font-sans">

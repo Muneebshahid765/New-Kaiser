@@ -103,7 +103,7 @@ export default function CartPage() {
                         <p className="text-xs">
                           {(item.deliveryCharges ?? 0) > 0 ? (
                             <span className="text-[#8D6E63]">
-                              + ${item.deliveryCharges.toFixed(2)} delivery
+                              + ${Number(item.deliveryCharges).toFixed(2)} delivery
                             </span>
                           ) : (
                             <span className="text-[#2E7D32] font-medium">Free Delivery</span>

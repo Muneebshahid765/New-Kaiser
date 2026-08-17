@@ -1,4 +1,4 @@
-/*eslint-disable*/
+/* eslint-disable */
 import {
   Injectable,
   NotFoundException,
@@ -7,116 +7,54 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
+import { ImageDedupService } from 'src/modules/uploads/services/image.service';
+import { ImageFolder, UsageModel } from '@prisma/client';
 import { UpdateThemeDto } from './dto/update-theme.dto';
-import {UpdateAdminProfileDto, UpdateSecuritySettingsDto } from './dto/update-profile.dto';
+import { UpdateAdminProfileDto, UpdateSecuritySettingsDto } from './dto/update-profile.dto';
 import { UpdateSiteWideDiscountDto } from './dto/update-discount.dto';
 import * as bcrypt from 'bcrypt';
-import * as fs from 'fs';
-import * as path from 'path';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateNotificationsDto } from './dto/update-notifications.dto';
 import { ChangePasswordDto } from 'src/modules/buyer/profile/dto/change-password.dto';
 
 @Injectable()
 export class AdminSettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly imageService: ImageDedupService,
+  ) {}
 
-
-private async logAdminAction(adminProfileId: string, actionDescription: string) {
+  // ============================================================================
+  // PRIVATE: Log admin action (last action only — no audit table bloat)
+  // ============================================================================
+  private async logAdminAction(adminProfileId: string, action: string): Promise<void> {
     await this.prisma.adminProfile.update({
       where: { id: adminProfileId },
       data: {
-        lastAction: actionDescription.substring(0, 150), // Schema length limit: 150
+        lastAction: action.substring(0, 150),
         lastActionAt: new Date(),
       },
     });
   }
 
-
   // ============================================================================
-  // HELPER: Get or Create AdminSettings linked with AdminProfile
+  // PRIVATE: Get or create AdminSettings for a given adminProfileId
   // ============================================================================
   private async getOrCreateSettings(adminProfileId: string) {
-    let settings = await this.prisma.adminSettings.findUnique({
+    const existing = await this.prisma.adminSettings.findUnique({
       where: { adminProfileId },
     });
+    if (existing) return existing;
 
-    if (!settings) {
-      settings = await this.prisma.adminSettings.create({
-        data: { adminProfileId },
-      });
-    }
-
-    return settings;
-  }
-
-  // ============================================================================
-  // 1. GET ALL ADMIN SETTINGS & PROFILE
-  // ============================================================================
-  async getSettings(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        adminProfile: {
-          include: { settings: true },
-        },
-      },
+    return this.prisma.adminSettings.create({
+      data: { adminProfileId },
     });
-
-    if (!user || !user.adminProfile) {
-      throw new NotFoundException('Admin profile not found');
-    }
-
-    const settings = await this.getOrCreateSettings(user.adminProfile.id);
-
-    return {
-      success: true,
-      data: {
-        id: settings.id,
-        twoFactorEnabled: user.adminProfile.twoFactorEnabled,
-        profile: {
-          name: user.adminProfile.name,
-          email: user.email,
-          profilePicture: settings.profilePicture,
-        },
-        preferences: {
-          currency: settings.prefCurrency,
-          language: settings.prefLanguage,
-          timezoneAuto: settings.prefTimezoneAuto,
-          timezoneManual: settings.prefTimezoneManual,
-          dateFormat: settings.prefDateFormat,
-        },
-        notifications: {
-          emailAlerts: settings.notifEmailAlerts,
-          orderAlerts: settings.notifOrderAlerts,
-          lowStockAlerts: settings.notifLowStockAlerts,
-          customerAlerts: settings.notifCustomerAlerts,
-          systemAlerts: settings.notifSystemAlerts,
-        },
-        theme: {
-          mode: settings.themeMode,
-          sidebarCollapsed: settings.themeSidebarCollapsed,
-        },
-        security: {
-          twoFactorEnabled: user.adminProfile.twoFactorEnabled,
-          sessionTimeoutMin: settings.securitySessionTimeoutMin,
-          lastPasswordChange: user.lastPasswordChange,
-        },
-        siteWideDiscount: {
-          enabled: settings.discountEnabled,
-          percentage: settings.discountPercentage,
-          bannerText: settings.discountBannerText,
-          startDate: settings.discountStartDate,
-          endDate: settings.discountEndDate,
-        },
-      },
-    };
   }
 
   // ============================================================================
-  // 2. UPDATE PROFILE (Name / Email)
+  // PRIVATE: Resolve user + adminProfile, throw if missing
   // ============================================================================
-  async updateProfile(userId: string, dto: UpdateAdminProfileDto) {
+  private async resolveAdmin(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { adminProfile: true },
@@ -126,41 +64,93 @@ private async logAdminAction(adminProfileId: string, actionDescription: string) 
       throw new NotFoundException('Admin profile not found');
     }
 
-    // Check duplicate email
-    if (dto.email && dto.email.toLowerCase() !== user.email) {
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: dto.email.toLowerCase() },
-      });
-      if (existingUser) {
-        throw new ConflictException('Email address is already in use');
+    return user as typeof user & { adminProfile: NonNullable<typeof user.adminProfile> };
+  }
+
+  // ============================================================================
+  // 1. GET ALL SETTINGS
+  // ============================================================================
+ // admin-settings.service.ts
+async getSettings(userId: string) {
+  const user = await this.resolveAdmin(userId);
+  const settings = await this.getOrCreateSettings(user.adminProfile.id);
+
+  // Return direct payload without outer `{ success: true, data: ... }`
+  return {
+    id: settings.id,
+    twoFactorEnabled: user.adminProfile.twoFactorEnabled,
+    profile: {
+      name: user.adminProfile.name,
+      email: user.email,
+      profilePicture: settings.profilePicture ?? null,
+    },
+    preferences: {
+      currency: settings.prefCurrency,
+      language: settings.prefLanguage,
+      timezoneAuto: settings.prefTimezoneAuto,
+      timezoneManual: settings.prefTimezoneManual,
+      dateFormat: settings.prefDateFormat,
+    },
+    notifications: {
+      emailAlerts: settings.notifEmailAlerts,
+      orderAlerts: settings.notifOrderAlerts,
+      lowStockAlerts: settings.notifLowStockAlerts,
+      customerAlerts: settings.notifCustomerAlerts,
+      systemAlerts: settings.notifSystemAlerts,
+    },
+    theme: {
+      mode: settings.themeMode,
+      sidebarCollapsed: settings.themeSidebarCollapsed,
+    },
+    security: {
+      twoFactorEnabled: user.adminProfile.twoFactorEnabled,
+      sessionTimeoutMin: settings.securitySessionTimeoutMin,
+      lastPasswordChange: user.lastPasswordChange ?? null,
+    },
+    siteWideDiscount: {
+      enabled: settings.discountEnabled,
+      percentage: Number(settings.discountPercentage),
+      bannerText: settings.discountBannerText,
+      startDate: settings.discountStartDate ?? null,
+      endDate: settings.discountEndDate ?? null,
+    },
+  };
+}
+
+  // ============================================================================
+  // 2. UPDATE PROFILE (name / email)
+  // ============================================================================
+  async updateProfile(userId: string, dto: UpdateAdminProfileDto) {
+    const user = await this.resolveAdmin(userId);
+
+    // Duplicate email guard
+    if (dto.email) {
+      const normalizedEmail = dto.email.trim().toLowerCase();
+      if (normalizedEmail !== user.email.toLowerCase()) {
+        const taken = await this.prisma.user.findUnique({
+          where: { email: normalizedEmail },
+        });
+        if (taken) throw new ConflictException('Email address is already in use');
       }
     }
 
-    // Transaction for atomic update across User, AdminProfile, and AdminSettings
     await this.prisma.$transaction(async (tx) => {
-      if (dto.email || dto.name) {
+      if (dto.email) {
         await tx.user.update({
           where: { id: userId },
-          data: { email: dto.email ? dto.email.toLowerCase() : undefined },
+          data: { email: dto.email!.trim().toLowerCase() },
         });
       }
 
       if (dto.name) {
         await tx.adminProfile.update({
-          where: { id: user.adminProfile?.id },
-          data: { name: dto.name },
+          where: { id: user.adminProfile.id },
+          data: { name: dto.name.trim() },
         });
       }
-
-      const settings = await this.getOrCreateSettings(user.adminProfile!.id);
-      await tx.adminSettings.update({
-        where: { id: settings.id },
-        data: {
-          profileName: dto.name || settings.profileName,
-          profileEmail: dto.email ? dto.email.toLowerCase() : settings.profileEmail,
-        },
-      });
     });
+
+    await this.logAdminAction(user.adminProfile.id, 'Updated profile (name/email)');
 
     return { success: true, message: 'Profile updated successfully' };
   }
@@ -169,87 +159,87 @@ private async logAdminAction(adminProfileId: string, actionDescription: string) 
   // 3. CHANGE PASSWORD
   // ============================================================================
   async changePassword(userId: string, dto: ChangePasswordDto) {
-      const user = await this.prisma.user.findUnique({
-  where: { id: userId },
-  include: { adminProfile: true },
-});
-  
-if (!user || !user.adminProfile) {
-  throw new NotFoundException('Admin profile not found');
-}
+    const user = await this.resolveAdmin(userId);
 
     const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Incorrect current password');
+    if (!isMatch) throw new UnauthorizedException('Incorrect current password');
+
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('New passwords do not match');
     }
 
-    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
-    const now = new Date();
+    const hashed = await bcrypt.hash(dto.newPassword, 12);
 
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        password: hashedNewPassword,
-        lastPasswordChange: now,
+        password: hashed,
+        lastPasswordChange: new Date(),
       },
     });
 
-    await this.logAdminAction(user.adminProfile?.id, 'Changed admin account password');
+    await this.logAdminAction(user.adminProfile.id, 'Changed account password');
+
     return { success: true, message: 'Password changed successfully' };
   }
 
   // ============================================================================
-  // 4. UPLOAD PROFILE PICTURE
+  // 4. UPLOAD PROFILE PICTURE (uses ImageDedupService — WebP + dedup)
   // ============================================================================
   async uploadProfilePicture(userId: string, file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { adminProfile: true },
-    });
-
-    if (!user || !user.adminProfile) throw new NotFoundException('Admin profile not found');
-
+    const user = await this.resolveAdmin(userId);
     const settings = await this.getOrCreateSettings(user.adminProfile.id);
 
-    // Delete existing old profile picture if exists
+    // Release old image asset if it exists
     if (settings.profilePicture) {
-      const relativePath = settings.profilePicture.replace(/^\//, '');
-      const oldPath = path.join(process.cwd(), relativePath);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
+      await this.imageService
+        .releaseImageRef(
+          settings.profilePicture,
+          UsageModel.profile,
+          settings.id,
+          'profilePicture',
+        )
+        .catch(() => null); // non-fatal if asset already gone
     }
 
-    const pictureUrl = `/uploads/profiles/${file.filename}`;
+    // Process + dedup via shared image service
+    const { asset } = await this.imageService.processAndDedup(
+      file.buffer,
+      ImageFolder.profiles,
+    );
+
+    // Register usage
+    await this.imageService.addUsageRef(
+      asset.id,
+      UsageModel.profile,
+      settings.id,
+      'profilePicture',
+    );
 
     await this.prisma.adminSettings.update({
       where: { id: settings.id },
-      data: { profilePicture: pictureUrl },
+      data: { profilePicture: asset.path },
     });
+
+    await this.logAdminAction(user.adminProfile.id, 'Updated profile picture');
 
     return {
       success: true,
       message: 'Profile picture uploaded successfully',
-      data: { profilePicture: pictureUrl },
+      data: { profilePicture: asset.path },
     };
   }
 
   // ============================================================================
-  // 5. UPDATE THEME SETTINGS
+  // 5. UPDATE THEME
   // ============================================================================
   async updateTheme(userId: string, dto: UpdateThemeDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { adminProfile: true },
-    });
-
-    if (!user || !user.adminProfile) throw new NotFoundException('Admin profile not found');
-
+    const user = await this.resolveAdmin(userId);
     const settings = await this.getOrCreateSettings(user.adminProfile.id);
 
-    const updatedSettings = await this.prisma.adminSettings.update({
+    const updated = await this.prisma.adminSettings.update({
       where: { id: settings.id },
       data: {
         themeMode: dto.mode ?? settings.themeMode,
@@ -259,34 +249,33 @@ if (!user || !user.adminProfile) {
 
     return {
       success: true,
-      message: 'Theme settings updated successfully',
+      message: 'Theme updated successfully',
       data: {
-        mode: updatedSettings.themeMode,
-        sidebarCollapsed: updatedSettings.themeSidebarCollapsed,
+        mode: updated.themeMode,
+        sidebarCollapsed: updated.themeSidebarCollapsed,
       },
     };
   }
 
   // ============================================================================
-  // 6. UPDATE SECURITY SETTINGS
+  // 6. UPDATE SECURITY (session timeout only — 2FA managed by auth service)
   // ============================================================================
   async updateSecurity(userId: string, dto: UpdateSecuritySettingsDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { adminProfile: true },
-    });
-
-    if (!user || !user.adminProfile) throw new NotFoundException('Admin profile not found');
-
+    const user = await this.resolveAdmin(userId);
     const settings = await this.getOrCreateSettings(user.adminProfile.id);
 
     await this.prisma.adminSettings.update({
       where: { id: settings.id },
       data: {
-        securitySessionTimeoutMin: dto.sessionTimeoutMin ?? settings.securitySessionTimeoutMin,
+        securitySessionTimeoutMin:
+          dto.sessionTimeoutMin ?? settings.securitySessionTimeoutMin,
+        // Keep mirror field in sync with AdminProfile truth
+        securityTwoFactorEnabled: user.adminProfile.twoFactorEnabled,
       },
     });
-    await this.logAdminAction(user.adminProfile.id, 'Updated security settings (Session Timeout)');
+
+    await this.logAdminAction(user.adminProfile.id, 'Updated security settings');
+
     return { success: true, message: 'Security settings updated successfully' };
   }
 
@@ -294,56 +283,66 @@ if (!user || !user.adminProfile) {
   // 7. UPDATE SITE-WIDE DISCOUNT
   // ============================================================================
   async updateSiteWideDiscount(userId: string, dto: UpdateSiteWideDiscountDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { adminProfile: true },
-    });
-
-    if (!user || !user.adminProfile) throw new NotFoundException('Admin profile not found');
-
+    const user = await this.resolveAdmin(userId);
     const settings = await this.getOrCreateSettings(user.adminProfile.id);
+
+    // Validate date range when both provided
+    if (dto.startDate && dto.endDate) {
+      const start = new Date(dto.startDate);
+      const end = new Date(dto.endDate);
+      if (end <= start) {
+        throw new BadRequestException('End date must be after start date');
+      }
+    }
 
     const updated = await this.prisma.adminSettings.update({
       where: { id: settings.id },
       data: {
         discountEnabled: dto.enabled ?? settings.discountEnabled,
-        discountPercentage: dto.percentage !== undefined ? dto.percentage : settings.discountPercentage,
+        discountPercentage:
+          dto.percentage !== undefined ? dto.percentage : settings.discountPercentage,
         discountBannerText: dto.bannerText ?? settings.discountBannerText,
-        discountStartDate: dto.startDate ? new Date(dto.startDate) : dto.startDate === null ? null : settings.discountStartDate,
-        discountEndDate: dto.endDate ? new Date(dto.endDate) : dto.endDate === null ? null : settings.discountEndDate,
+        discountStartDate:
+          dto.startDate === null
+            ? null
+            : dto.startDate
+              ? new Date(dto.startDate)
+              : settings.discountStartDate,
+        discountEndDate:
+          dto.endDate === null
+            ? null
+            : dto.endDate
+              ? new Date(dto.endDate)
+              : settings.discountEndDate,
       },
     });
-    await this.logAdminAction(user.adminProfile.id, `Updated site-wide discount (Enabled: ${dto.enabled ?? 'unchanged'})`);
+
+    await this.logAdminAction(
+      user.adminProfile.id,
+      `Updated site-wide discount — enabled: ${updated.discountEnabled}, ${Number(updated.discountPercentage)}%`,
+    );
+
     return {
       success: true,
       message: 'Site-wide discount updated successfully',
       data: {
         enabled: updated.discountEnabled,
-        percentage: updated.discountPercentage,
+        percentage: Number(updated.discountPercentage),
         bannerText: updated.discountBannerText,
-        startDate: updated.discountStartDate,
-        endDate: updated.discountEndDate,
+        startDate: updated.discountStartDate ?? null,
+        endDate: updated.discountEndDate ?? null,
       },
     };
   }
 
-
   // ============================================================================
-  // FEATURE 1: UPDATE PREFERENCES (Currency, Language, Timezone, Date Format)
+  // 8. UPDATE PREFERENCES
   // ============================================================================
   async updatePreferences(userId: string, dto: UpdatePreferencesDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { adminProfile: true },
-    });
-
-    if (!user || !user.adminProfile) {
-      throw new NotFoundException('Admin profile not found');
-    }
-
+    const user = await this.resolveAdmin(userId);
     const settings = await this.getOrCreateSettings(user.adminProfile.id);
 
-    const updatedSettings = await this.prisma.adminSettings.update({
+    const updated = await this.prisma.adminSettings.update({
       where: { id: settings.id },
       data: {
         prefCurrency: dto.prefCurrency ?? settings.prefCurrency,
@@ -354,62 +353,59 @@ if (!user || !user.adminProfile) {
       },
     });
 
-    // Track Action in Audit Log
-    await this.logAdminAction(user.adminProfile.id, 'Updated system preferences (Currency/Timezone/Language)');
+    await this.logAdminAction(
+      user.adminProfile.id,
+      'Updated preferences (currency/language/timezone)',
+    );
 
     return {
       success: true,
       message: 'Preferences updated successfully',
       data: {
-        prefCurrency: updatedSettings.prefCurrency,
-        prefLanguage: updatedSettings.prefLanguage,
-        prefTimezoneAuto: updatedSettings.prefTimezoneAuto,
-        prefTimezoneManual: updatedSettings.prefTimezoneManual,
-        prefDateFormat: updatedSettings.prefDateFormat,
+        prefCurrency: updated.prefCurrency,
+        prefLanguage: updated.prefLanguage,
+        prefTimezoneAuto: updated.prefTimezoneAuto,
+        prefTimezoneManual: updated.prefTimezoneManual,
+        prefDateFormat: updated.prefDateFormat,
       },
     };
   }
 
-
+  // ============================================================================
+  // 9. UPDATE NOTIFICATIONS
+  // ============================================================================
   async updateNotifications(userId: string, dto: UpdateNotificationsDto) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    include: { adminProfile: true },
-  });
+    const user = await this.resolveAdmin(userId);
+    const settings = await this.getOrCreateSettings(user.adminProfile.id);
 
-  if (!user || !user.adminProfile) throw new NotFoundException('Admin profile not found');
+    const updated = await this.prisma.adminSettings.update({
+      where: { id: settings.id },
+      data: {
+        notifEmailAlerts: dto.emailAlerts ?? settings.notifEmailAlerts,
+        notifOrderAlerts: dto.orderAlerts ?? settings.notifOrderAlerts,
+        notifLowStockAlerts: dto.lowStockAlerts ?? settings.notifLowStockAlerts,
+        notifCustomerAlerts: dto.customerAlerts ?? settings.notifCustomerAlerts,
+        notifSystemAlerts: dto.systemAlerts ?? settings.notifSystemAlerts,
+      },
+    });
 
-  const settings = await this.getOrCreateSettings(user.adminProfile.id);
+    await this.logAdminAction(user.adminProfile.id, 'Updated notification preferences');
 
-  const updated = await this.prisma.adminSettings.update({
-    where: { id: settings.id },
-    data: {
-      notifEmailAlerts: dto.emailAlerts ?? settings.notifEmailAlerts,
-      notifOrderAlerts: dto.orderAlerts ?? settings.notifOrderAlerts,
-      notifLowStockAlerts: dto.lowStockAlerts ?? settings.notifLowStockAlerts,
-      notifCustomerAlerts: dto.customerAlerts ?? settings.notifCustomerAlerts,
-      notifSystemAlerts: dto.systemAlerts ?? settings.notifSystemAlerts,
-    },
-  });
-
-  await this.logAdminAction(user.adminProfile.id, 'Updated notification alert preferences');
-
-  return {
-    success: true,
-    message: 'Notification preferences updated successfully',
-    data: {
-      emailAlerts: updated.notifEmailAlerts,
-      orderAlerts: updated.notifOrderAlerts,
-      lowStockAlerts: updated.notifLowStockAlerts,
-      customerAlerts: updated.notifCustomerAlerts,
-      systemAlerts: updated.notifSystemAlerts,
-    },
-  };
-}
-
+    return {
+      success: true,
+      message: 'Notification preferences updated successfully',
+      data: {
+        emailAlerts: updated.notifEmailAlerts,
+        orderAlerts: updated.notifOrderAlerts,
+        lowStockAlerts: updated.notifLowStockAlerts,
+        customerAlerts: updated.notifCustomerAlerts,
+        systemAlerts: updated.notifSystemAlerts,
+      },
+    };
+  }
 
   // ============================================================================
-  // 8. PUBLIC DISCOUNT ENDPOINT
+  // 10. PUBLIC DISCOUNT (no auth — storefront use)
   // ============================================================================
   async getPublicDiscount() {
     const settings = await this.prisma.adminSettings.findFirst({
@@ -425,53 +421,68 @@ if (!user || !user.adminProfile) {
     }
 
     const now = new Date();
-    const isStartValid = !settings.discountStartDate || now >= settings.discountStartDate;
-    const isEndValid = !settings.discountEndDate || now <= settings.discountEndDate;
-    const isActive = settings.discountEnabled && isStartValid && isEndValid;
+    const startOk = !settings.discountStartDate || now >= settings.discountStartDate;
+    const endOk = !settings.discountEndDate || now <= settings.discountEndDate;
+    const isActive = settings.discountEnabled && startOk && endOk;
 
     return {
       success: true,
       data: {
         enabled: isActive,
-        percentage: isActive ? settings.discountPercentage : 0,
+        percentage: isActive ? Number(settings.discountPercentage) : 0,
         bannerText: isActive ? settings.discountBannerText : '',
-        startDate: settings.discountStartDate,
-        endDate: settings.discountEndDate,
+        startDate: settings.discountStartDate ?? null,
+        endDate: settings.discountEndDate ?? null,
       },
     };
   }
 
-  async getSystemActivityAndHealth(userId: string) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    include: { adminProfile: true },
-  });
+  // ============================================================================
+  // 11. SYSTEM ACTIVITY & HEALTH
+  // ============================================================================
+// admin-settings.service.ts
 
-  if (!user || !user.adminProfile) {
-    throw new NotFoundException('Admin profile not found');
-  }
+async getSystemActivityAndHealth(userId: string) {
+  const user = await this.resolveAdmin(userId);
 
-  // Fetch recent admin actions from notification/audit log
   const recentNotifications = await this.prisma.adminNotification.findMany({
-    take: 5,
+    take: 4,
     orderBy: { createdAt: 'desc' },
     select: { id: true, title: true, createdAt: true },
   });
 
+  const recentActions = [
+    ...(user.adminProfile.lastAction
+      ? [
+          {
+            id: 'last-action',
+            action: user.adminProfile.lastAction,
+            timestamp: user.adminProfile.lastActionAt ?? null,
+          },
+        ]
+      : []),
+    ...recentNotifications.map((n) => ({
+      id: n.id,
+      action: n.title,
+      timestamp: n.createdAt,
+    })),
+  ].slice(0, 5);
+
+  let dbStatus = 'Connected';
+  try {
+    await this.prisma.$queryRaw`SELECT 1`;
+  } catch {
+    dbStatus = 'Disconnected';
+  }
+
+  // Direct return karain — ResponseInterceptor isey khud wrap kar ley ga
   return {
-    success: true,
-    data: {
-      recentActions: [
-        { id: '1', action: user.adminProfile.lastAction || 'Updated System Settings', timestamp: user.adminProfile.lastActionAt },
-        ...recentNotifications.map(n => ({ id: n.id, action: n.title, timestamp: n.createdAt })),
-      ].slice(0, 5),
-      systemStatus: {
-        database: 'Connected',
-        paymentGateway: 'Connected',
-        emailService: 'Active',
-      },
+    recentActions,
+    systemStatus: {
+      database: dbStatus,
+      paymentGateway: 'Connected',
+      emailService: 'Active',
     },
   };
 }
-
 }

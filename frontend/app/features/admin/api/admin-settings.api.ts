@@ -18,7 +18,7 @@ import type {
   UpdateSiteWideDiscountPayload,
   UpdatePreferencesPayload,
   UpdateNotificationsPayload,
-} from "../types/admin-settings.types";
+} from "../schemas/admin-settings.schemas";
 import type {
   AdminSettingsResponse,
   MessageResponse,

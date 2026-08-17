@@ -1,11 +1,11 @@
 // features/admin-auth/hooks/admin-auth.hooks.ts
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useMutationWithToast } from "@/hooks/use-mutation-toast";
-import { useGetAuth } from "@/context/auth-context";
-import { AUTH_QUERY_KEY } from "@/context/auth-context";
-import { ApiError } from "@/services/https";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { useMutationWithToast } from '@/hooks/use-mutation-toast';
+import { useGetAuth } from '@/context/auth-context';
+import { AUTH_QUERY_KEY } from '@/context/auth-context';
+import { ApiError } from '@/services/https';
 import {
   adminLogin,
   verifyAdminLoginTwoFactor,
@@ -13,13 +13,13 @@ import {
   verifyAndEnableTwoFactor,
   disableTwoFactor,
   getTwoFactorStatus,
-} from "../api/admin-auth.api";
+} from '../api/admin-auth.api';
 import type {
   AdminLoginPayload,
   VerifyTwoFactorSetupPayload,
   VerifyTwoFactorLoginPayload,
   DisableTwoFactorPayload,
-} from "../types/admin-auth.types";
+} from '../types/admin-auth.types';
 import {
   requiresTwoFactor,
   type AdminLoginResponse,
@@ -28,16 +28,12 @@ import {
   type TwoFactorEnabledResponse,
   type TwoFactorDisabledResponse,
   type TwoFactorStatusResponse,
-} from "../types/admin-auth-response.types";
+} from '../types/admin-auth-response.types';
+import { ADMIN_SETTINGS_KEY } from './admin-settings.hooks';
 
-export const TWO_FACTOR_STATUS_KEY = ["admin-auth", "2fa-status"] as const;
+export const TWO_FACTOR_STATUS_KEY = ['admin-auth', '2fa-status'] as const;
 
 // ─── Login step 1: email + password ──────────────────────────────────────────
-// Deliberately NOT using useMutationWithToast here: a `requiresTwoFactor`
-// response is a normal, expected outcome (not a failure), and firing a
-// generic "success" toast at that point would be misleading — the user
-// still has to clear the OTP step. The component reads `requiresTwoFactor()`
-// on the result to decide whether to show the OTP screen or finish up.
 export function useAdminLogin() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -46,19 +42,20 @@ export function useAdminLogin() {
     mutationFn: adminLogin,
     onSuccess: async (data) => {
       if (requiresTwoFactor(data)) {
-        return; // let the component move to the OTP-entry screen
+        // Component reads data.data.tempSessionId + data.data.email to show OTP screen
+        return;
       }
-      toast.success("Login successful.");
+      toast.success('Login successful.');
       await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-      router.replace("/dashboard");
+      router.replace('/dashboard');
     },
     onError: (error) => {
-      toast.error(error.message);
+      toast.error(error.message ?? 'Login failed.');
     },
   });
 }
 
-// ─── Login step 2: OTP from the authenticator app ────────────────────────────
+// ─── Login step 2: OTP ────────────────────────────────────────────────────────
 export function useVerifyAdminLoginTwoFactor() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -66,47 +63,49 @@ export function useVerifyAdminLoginTwoFactor() {
   return useMutation<AdminVerifyLoginResponse, ApiError, VerifyTwoFactorLoginPayload>({
     mutationFn: verifyAdminLoginTwoFactor,
     onSuccess: async () => {
-      toast.success("Login successful.");
+      toast.success('Login successful.');
       await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-      router.replace("/dashboard");
+      router.replace('/dashboard');
     },
     onError: (error) => {
-      toast.error(error.message);
+      toast.error(error.message ?? 'Invalid verification code.');
     },
   });
 }
 
-// ─── 2FA status (gated behind an authenticated admin session) ──────────────
+// ─── 2FA status ──────────────────────────────────────────────────────────────
 export function useTwoFactorStatus() {
   const { data: user, isLoading: isAuthLoading } = useGetAuth();
 
   return useQuery<TwoFactorStatusResponse, Error>({
     queryKey: TWO_FACTOR_STATUS_KEY,
     queryFn: getTwoFactorStatus,
-    enabled: !!user && !isAuthLoading && user.role === "admin",
+    enabled: !!user && !isAuthLoading && user.role === 'admin',
     staleTime: 1_000 * 60 * 5,
     retry: false,
     refetchOnWindowFocus: false,
   });
 }
 
-// ─── Begin setup — returns the QR code to scan ──────────────────────────────
+// ─── Begin setup — returns QR code ───────────────────────────────────────────
 export function useSetupTwoFactor() {
   return useMutationWithToast<TwoFactorSetupResponse, void>(setupTwoFactor, {
-    successMsg: "Scan the QR code with your authenticator app.",
+    successMsg: 'Scan the QR code with your authenticator app.',
   });
 }
 
-// ─── Confirm setup with the first OTP ────────────────────────────────────────
+// ─── Confirm setup with first OTP ────────────────────────────────────────────
 export function useVerifyAndEnableTwoFactor() {
   const queryClient = useQueryClient();
 
   return useMutationWithToast<TwoFactorEnabledResponse, VerifyTwoFactorSetupPayload>(
     verifyAndEnableTwoFactor,
     {
-      successMsg: "Two-factor authentication enabled.",
+      successMsg: 'Two-factor authentication enabled.',
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: TWO_FACTOR_STATUS_KEY });
+        // Refresh settings so the security section reflects the new state
+        queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
       },
     },
   );
@@ -119,9 +118,10 @@ export function useDisableTwoFactor() {
   return useMutationWithToast<TwoFactorDisabledResponse, DisableTwoFactorPayload>(
     disableTwoFactor,
     {
-      successMsg: "Two-factor authentication disabled.",
+      successMsg: 'Two-factor authentication disabled.',
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: TWO_FACTOR_STATUS_KEY });
+        queryClient.invalidateQueries({ queryKey: ADMIN_SETTINGS_KEY });
       },
     },
   );

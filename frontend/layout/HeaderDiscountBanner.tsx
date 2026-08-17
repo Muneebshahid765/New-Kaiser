@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 interface DiscountTimerPart {
   label: string;
@@ -12,12 +12,13 @@ interface DiscountTimer {
   status: string;
 }
 
-interface HeaderDiscountBannerProps {
+export interface HeaderDiscountBannerProps {
   publicDiscount?: {
     enabled?: boolean;
-    endDate?: string | Date | null; // ✅ Fixed to accept null
+    endDate?: string | Date | null;
     bannerText?: string;
-  } | null; // Optional: agar khud `publicDiscount` object hi null ho sake
+    percentage?: number;
+  } | null;
 }
 
 export const HeaderDiscountBanner: React.FC<HeaderDiscountBannerProps> = ({
@@ -27,24 +28,46 @@ export const HeaderDiscountBanner: React.FC<HeaderDiscountBannerProps> = ({
     parts: [],
     status: '',
   });
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevent SSR/Hydration Mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Safe data extraction handling nested wrappers
+  const discountData = useMemo(() => {
+    if (!publicDiscount) return null;
+    const raw = (publicDiscount as any)?.data ?? publicDiscount;
+    return {
+      enabled: Boolean(raw?.enabled),
+      endDate: raw?.endDate ?? null,
+      bannerText: raw?.bannerText || 'Limited-time sitewide discount offer',
+      percentage: raw?.percentage ?? null,
+    };
+  }, [publicDiscount]);
 
   useEffect(() => {
-    if (!publicDiscount?.enabled) {
+    if (!discountData?.enabled) {
       setDiscountTimer({ parts: [], status: '' });
       return;
     }
-    if (!publicDiscount?.endDate) {
+
+    if (!discountData.endDate) {
       setDiscountTimer({ parts: [], status: 'Live until further notice' });
       return;
     }
 
-    const buildTimerPayload = (): DiscountTimer => {
-      // Type assertion or safe check since endDate could be string or Date
-      const targetDate = new Date(publicDiscount.endDate as string | Date);
-      if (isNaN(targetDate.getTime())) return { parts: [], status: 'Ending soon' };
+    const calculateTime = (): DiscountTimer => {
+      const targetDate = new Date(discountData.endDate as string | Date);
+      if (isNaN(targetDate.getTime())) {
+        return { parts: [], status: 'Ending soon' };
+      }
 
       const diff = targetDate.getTime() - Date.now();
-      if (diff <= 0) return { parts: [], status: 'Ending soon' };
+      if (diff <= 0) {
+        return { parts: [], status: 'Offer expired' };
+      }
 
       const totalSeconds = Math.floor(diff / 1000);
       const days = Math.floor(totalSeconds / 86400);
@@ -53,51 +76,58 @@ export const HeaderDiscountBanner: React.FC<HeaderDiscountBannerProps> = ({
       const seconds = totalSeconds % 60;
 
       const parts: DiscountTimerPart[] = [];
-      if (days > 0) parts.push({ label: 'Days', value: String(days).padStart(2, '0') });
-      parts.push({ label: 'Hours', value: String(hours).padStart(2, '0') });
-      parts.push({ label: 'Mins', value: String(minutes).padStart(2, '0') });
-      parts.push({ label: 'Secs', value: String(seconds).padStart(2, '0') });
+      if (days > 0) parts.push({ label: 'D', value: String(days).padStart(2, '0') });
+      parts.push({ label: 'H', value: String(hours).padStart(2, '0') });
+      parts.push({ label: 'M', value: String(minutes).padStart(2, '0') });
+      parts.push({ label: 'S', value: String(seconds).padStart(2, '0') });
 
       return { parts, status: 'left' };
     };
 
-    setDiscountTimer(buildTimerPayload());
-    const intervalId = setInterval(() => setDiscountTimer(buildTimerPayload()), 1000);
-    return () => clearInterval(intervalId);
-  }, [publicDiscount]);
+    setDiscountTimer(calculateTime());
+    const interval = setInterval(() => {
+      setDiscountTimer(calculateTime());
+    }, 1000);
 
-  if (!publicDiscount?.enabled) return null;
+    return () => clearInterval(interval);
+  }, [discountData]);
+
+  if (!isMounted || !discountData?.enabled) return null;
 
   return (
-    <div className="w-full bg-gradient-to-r from-orange-500/95 to-rose-500/92 py-2 text-orange-50 border-b border-white/15 shadow-[inset_0_-1px_rgba(0,0,0,0.25)]">
-      <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-[18px] px-6 flex-wrap">
-        <div className="flex items-center gap-3.5 flex-1 min-w-[250px]">
-          <span className="px-3 py-1 rounded-full bg-slate-900/35 border border-white/25 text-amber-50 text-xs font-bold tracking-[0.6px] uppercase inline-flex items-center gap-2">
-            Site-wide deal
+    <div className="w-full bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 py-2 px-4 text-white shadow-md border-b border-white/10">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs sm:text-sm flex-wrap sm:flex-nowrap">
+        {/* Deal Info */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="shrink-0 bg-slate-900/40 text-amber-300 font-bold px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider border border-amber-400/30">
+            {discountData.percentage ? `${discountData.percentage}% OFF` : 'DEAL'}
           </span>
-          <div className="flex flex-col gap-0.5">
-            <p className="m-0 text-sm font-semibold tracking-[0.4px] text-white">
-              {publicDiscount.bannerText || 'Limited time offer for all products'}
-            </p>
-          </div>
+          <p className="font-medium truncate m-0 text-white/95">
+            {discountData.bannerText}
+          </p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs uppercase tracking-[0.4px] text-white/80">Ends in</span>
-          {discountTimer.parts.length > 0 && (
-            <div className="flex justify-center gap-2.5">
+
+        {/* Timer Widget */}
+        <div className="flex items-center gap-2 ml-auto shrink-0">
+          <span className="hidden md:inline text-[11px] text-white/80 uppercase font-medium tracking-wide">
+            Ends in:
+          </span>
+          {discountTimer.parts.length > 0 ? (
+            <div className="flex items-center gap-1.5 font-mono">
               {discountTimer.parts.map((part) => (
                 <div
                   key={part.label}
-                  className="bg-slate-900/35 border border-white/15 rounded-lg px-2.5 py-1.5 min-w-[50px] text-center shadow-[0_4px_10px_rgba(15,23,42,0.25)]"
+                  className="bg-slate-900/50 border border-white/20 rounded px-1.5 py-0.5 text-center min-w-[32px]"
                 >
-                  <span className="block text-sm font-bold tracking-[0.6px]">{part.value}</span>
-                  <span className="block text-xs uppercase tracking-[0.5px] text-white/75">{part.label}</span>
+                  <span className="block text-xs font-bold leading-tight">{part.value}</span>
+                  <span className="block text-[8px] text-amber-200/80 leading-none">{part.label}</span>
                 </div>
               ))}
             </div>
-          )}
-          {discountTimer.status && (
-            <span className="text-xs text-white/85">{discountTimer.status}</span>
+          ) : (
+            <span className="text-xs font-medium text-amber-200 bg-slate-900/40 px-2 py-0.5 rounded border border-white/10">
+              {discountTimer.status}
+            </span>
           )}
         </div>
       </div>

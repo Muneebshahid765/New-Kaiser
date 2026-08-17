@@ -71,3 +71,17 @@ export const UpdateNotificationsSchema = z.object({
   customerAlerts: z.boolean().optional(),
   systemAlerts: z.boolean().optional(),
 });
+
+
+export type ThemeMode = "light" | "dark" | "auto";
+export type CurrencyCode = "USD" | "GBP" | "EUR" | "PKR" | "INR";
+export type LanguageCode = "en" | "pt" | "ur" | "es" | "fr";
+export type DateFormatType = "MDY" | "DMY" | "YMD";
+
+export type UpdateAdminProfilePayload = z.infer<typeof UpdateAdminProfileSchema>;
+export type ChangeAdminPasswordPayload = z.infer<typeof ChangeAdminPasswordSchema>;
+export type UpdateThemePayload = z.infer<typeof UpdateThemeSchema>;
+export type UpdateSecuritySettingsPayload = z.infer<typeof UpdateSecuritySettingsSchema>;
+export type UpdateSiteWideDiscountPayload = z.infer<typeof UpdateSiteWideDiscountSchema>;
+export type UpdatePreferencesPayload = z.infer<typeof UpdatePreferencesSchema>;
+export type UpdateNotificationsPayload = z.infer<typeof UpdateNotificationsSchema>;
